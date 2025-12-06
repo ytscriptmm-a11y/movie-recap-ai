@@ -132,7 +132,9 @@ with st.sidebar:
             "gemini-1.5-pro", 
             "models/gemini-3-pro-image-preview",
             "gemini-1.5-flash", 
-            "models/gemini-2.5-pro"
+            "models/gemini-2.5-pro",
+            "models/gemini-3-pro-preview",
+            "models/gemini-2.5-flash"
         ],
         index=0 
     )
@@ -334,3 +336,4 @@ with tab3:
 # --- FOOTER ---
 st.markdown("---")
 st.markdown("<div style='text-align: center; color: #6B7280; font-size: 0.8rem;'>© 2025 Ultimate AI Studio. Powered by Google Gemini.</div>", unsafe_allow_html=True)
+
