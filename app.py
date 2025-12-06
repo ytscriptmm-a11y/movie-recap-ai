@@ -6,7 +6,7 @@ import tempfile
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Ultimate AI Studio",
+    page_title="Ultimate AI Content Studio",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -46,7 +46,7 @@ with st.sidebar:
     # API Key Input
     api_key = st.text_input("🔑 Google API Key", type="password", placeholder="Paste your API Key here...")
     
-    # Model Selection (Flexible)
+    # Model Selection (Flexible) - မင်းလိုချင်တဲ့အတိုင်း ပြင်ထားပါတယ်
     st.subheader("🧠 Model Settings")
     model_name = st.selectbox(
         "Select AI Model:",
@@ -61,12 +61,6 @@ with st.sidebar:
     )
     
     st.info(f"💡 **Current Model:** `{model_name}`\n\nUse '1.5-pro' for best quality, '1.5-flash' for speed.")
-
-    # Writing Style Upload (Only for Movie Recap)
-    if app_mode == "🎬 Movie Recap Generator":
-        st.markdown("---")
-        st.subheader("📝 Writing Style (Optional)")
-        style_file = st.file_uploader("Upload a sample script (.txt) to mimic style:", type=["txt"])
 
 # --- HELPER FUNCTIONS ---
 
@@ -91,9 +85,9 @@ def upload_to_gemini(file_path, mime_type=None):
             
         progress_bar.progress(100)
         status_text.text("✅ File Ready!")
-        time.sleep(1) 
-        status_text.empty() 
-        progress_bar.empty() 
+        time.sleep(1) # Small pause
+        status_text.empty() # Clear text
+        progress_bar.empty() # Clear bar
         return file
     except Exception as e:
         st.error(f"Upload Error: {e}")
@@ -104,7 +98,7 @@ def upload_to_gemini(file_path, mime_type=None):
 # ==========================================
 if app_mode == "🎬 Movie Recap Generator":
     st.title("🎬 Movie Recap Script Generator")
-    st.markdown(f"##### 🚀 ရုပ်ရှင်ဖိုင်တင်လိုက်ရုံနဲ့ မြန်မာလို Recap Script အသေးစိတ် ရေးပေးမယ့် စနစ်")
+    st.markdown(f"##### 🚀 ရုပ်ရှင်ဖိုင်တင်လိုက်ရုံနဲ့ မြန်မာလို Recap Script အသေးစိတ် ရေးပေးမယ့် စနစ် (Model: `{model_name}`)")
 
     uploaded_video = st.file_uploader("Upload Movie File (.mp4, .mkv, .mov)", type=["mp4", "mkv", "mov", "avi"])
 
@@ -112,28 +106,21 @@ if app_mode == "🎬 Movie Recap Generator":
         genai.configure(api_key=api_key)
         
         if st.button("🚀 Generate Recap Script"):
+            # Save temp file
             with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_video.name.split('.')[-1]}") as tmp:
                 tmp.write(uploaded_video.getvalue())
                 tmp_path = tmp.name
             
             gemini_file = upload_to_gemini(tmp_path)
             
-            # Read style file if uploaded
-            style_text = ""
-            if style_file is not None:
-                style_content = style_file.getvalue().decode("utf-8")
-                style_text = f"\n\n**WRITING STYLE REFERENCE:**\nPlease mimic the tone and style of the following text:\n---\n{style_content}\n---\n"
-
             if gemini_file:
                 try:
                     model = genai.GenerativeModel(model_name)
                     
-                    # Prompt with Style Injection
-                    prompt = f"""
+                    # Prompt
+                    prompt = """
                     You are a professional Burmese Movie Recap Scriptwriter.
                     Watch the video and write an **EXTREMELY DETAILED** movie recap script in **Burmese**.
-
-                    {style_text}
 
                     **CRITICAL INSTRUCTIONS:**
                     1. **SCENE-BY-SCENE:** Write scene-by-scene. Do NOT skip any scenes.
@@ -146,6 +133,7 @@ if app_mode == "🎬 Movie Recap Generator":
                     """
                     
                     with st.spinner("🤖 AI is watching the movie and writing the script..."):
+                        # Timeout တိုးထားပါတယ် (10 မိနစ်)
                         response = model.generate_content([gemini_file, prompt], request_options={"timeout": 600})
                         
                     st.success("🎉 Script Generated Successfully!")
@@ -163,7 +151,7 @@ if app_mode == "🎬 Movie Recap Generator":
 # ==========================================
 elif app_mode == "🌍 Universal Translator":
     st.title("🌍 Universal Translator & Transcriber")
-    st.markdown(f"##### 🔊 Audio/Video/Text ဖိုင်များကို မြန်မာလို ဘာသာပြန်/စာထုတ်ပေးမယ့် စနစ်")
+    st.markdown(f"##### 🔊 Audio/Video/Text ဖိုင်များကို မြန်မာလို ဘာသာပြန်/စာထုတ်ပေးမယ့် စနစ် (Model: `{model_name}`)")
     
     uploaded_file = st.file_uploader("Upload File (.mp3, .mp4, .txt, .srt)", type=["mp3", "wav", "m4a", "mp4", "mkv", "mov", "txt", "srt"])
 
