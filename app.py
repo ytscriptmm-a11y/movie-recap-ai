@@ -63,7 +63,8 @@ with st.sidebar:
             "gemini-1.5-pro", 
             "models/gemini-3-pro-image-preview", # Requested Model
             "gemini-1.5-flash", 
-            "models/gemini-2.5-pro"
+            "models/gemini-2.5-pro",
+            "models/gemini-3-pro-preview"
         ],
         index=0 
     )
@@ -289,3 +290,4 @@ elif app_mode == "🎨 AI Thumbnail Studio":
 
 elif not api_key:
     st.warning("⚠️ Please enter your API Key in the sidebar to start!")
+
