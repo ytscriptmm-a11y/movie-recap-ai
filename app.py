@@ -4,146 +4,226 @@ import time
 import os
 import tempfile
 
-# --- PAGE CONFIGURATION (Dark Theme & Icon) ---
+# --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="🎬 Movie Recap AI Studio",
-    page_icon="🎥",
-    layout="centered",
+    page_title="Ultimate AI Content Studio",
+    page_icon="🤖",
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- CUSTOM CSS (Styling) ---
+# --- CUSTOM CSS (Dark Theme & Styling) ---
 st.markdown("""
 <style>
-    .stApp {
-        background-color: #0E1117;
-        color: #FAFAFA;
+    .stApp { background-color: #0E1117; color: #FAFAFA; }
+    h1, h2, h3 { color: #58A6FF !important; font-family: sans-serif; }
+    .stButton>button { 
+        background-color: #238636; 
+        color: white; 
+        font-weight: bold; 
+        border-radius: 8px; 
+        border: none;
+        padding: 0.5rem 1rem;
     }
-    .stButton>button {
-        background-color: #E50914; /* Netflix Red */
-        color: white;
-        border-radius: 8px;
-        font-weight: bold;
-    }
-    h1 {
-        color: #E50914;
-    }
+    .stButton>button:hover { background-color: #2EA043; box-shadow: 0 0 10px #2EA043; }
+    .stSuccess { background-color: #1f2937; color: #4ade80; }
+    .stInfo { background-color: #1f2937; color: #60a5fa; }
+    .stWarning { background-color: #1f2937; color: #facc15; }
+    .stError { background-color: #1f2937; color: #f87171; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR CONFIG ---
+# --- SIDEBAR: SETTINGS & NAVIGATION ---
 with st.sidebar:
-    st.title("⚙️ Settings")
-    api_key = st.text_input("🔑 Google API Key", type="password", placeholder="Paste your API Key here...")
+    st.image("https://cdn-icons-png.flaticon.com/512/4712/4712035.png", width=60)
+    st.title("🎛️ Control Panel")
     
-    # Model Selection (Flexible)
-    model_name = st.selectbox(
-        "🧠 Select Model:",
-        ["gemini-1.5-pro", "gemini-1.5-flash", "models/gemini-3-pro-preview", "models/gemini-2.5-pro", "models/gemini-2.0-flash" ]
-    )
+    # Navigation Mode
+    app_mode = st.radio("Select Tool:", ["🎬 Movie Recap Generator", "🌍 Universal Translator"])
     
     st.markdown("---")
-    st.info("💡 **Pro Tip:** Use '1.5-pro' for better storytelling and '1.5-flash' for speed.")
+    
+    # API Key Input
+    api_key = st.text_input("🔑 Google API Key", type="password", placeholder="Paste your API Key here...")
+    
+    # Model Selection (Flexible) - မင်းလိုချင်တဲ့အတိုင်း ပြင်ထားပါတယ်
+    st.subheader("🧠 Model Settings")
+    model_name = st.selectbox(
+        "Select AI Model:",
+        [
+            "gemini-1.5-pro", 
+            "gemini-1.5-flash", 
+            "gemini-2.0-flash-exp", 
+            "models/gemini-3-pro-preview", 
+            "models/gemini-2.5-pro"
+        ],
+        index=0  # Default to 1.5-pro
+    )
+    
+    st.info(f"💡 **Current Model:** `{model_name}`\n\nUse '1.5-pro' for best quality, '1.5-flash' for speed.")
 
-# --- MAIN APP ---
-st.title("🎬 Movie Recap AI Studio")
-st.markdown("##### 🚀 ဗီဒီယိုဖိုင်တင်လိုက်ရုံနဲ့ မြန်မာလို Recap Script အလိုအလျောက် ရေးပေးမယ့် စနစ်")
+# --- HELPER FUNCTIONS ---
 
-# --- FILE UPLOADER ---
-st.markdown("---")
-uploaded_file = st.file_uploader("📂 Upload Video File (.mp4, .mkv, .mov)", type=["mp4", "mkv", "mov", "avi"])
-
-# --- GENERATE FUNCTION ---
-def generate_recap(video_path, api_key, model_name):
+def upload_to_gemini(file_path, mime_type=None):
+    """Uploads media file to Google AI Studio"""
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(model_name)
+        with st.spinner("⬆️ Uploading to Gemini... (Please wait)"):
+            file = genai.upload_file(file_path, mime_type=mime_type)
         
-        # 1. Upload
-        with st.spinner("⬆️ Uploading video to Gemini AI... (Large files take time)"):
-            video_file = genai.upload_file(path=video_path)
-            
-        # 2. Processing
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        while video_file.state.name == "PROCESSING":
-            status_text.text("⏳ Google is analyzing the video content...")
-            time.sleep(5)
-            video_file = genai.get_file(video_file.name)
+        while file.state.name == "PROCESSING":
+            status_text.text("⏳ Google is processing the file...")
+            time.sleep(2)
+            file = genai.get_file(file.name)
             progress_bar.progress(50)
             
-        if video_file.state.name == "FAILED":
-            st.error("❌ Video processing failed on Google's side.")
+        if file.state.name == "FAILED":
+            st.error("❌ Processing failed on Google's side.")
             return None
             
-        progress_bar.progress(80)
-        status_text.text("✅ Video Ready! Writing Script...")
-
-        # 3. Construct Prompt with Style
-        style_instruction = ""
-        if style_content:
-            style_instruction = f"""
-            **STYLE REFERENCE:**
-            Below is a sample of the user's writing style. You MUST mimic this exact tone, sentence structure, and vocabulary:
-            ---
-            {style_content}
-            ---
-            """
-
-        final_prompt = f"""
-        You are an expert Burmese Movie Recap Scriptwriter.
-        Your task is to watch the uploaded video and write an **EXTREMELY DETAILED, LONG-FORM** script in **Burmese**.
-
-        {style_instruction}
-
-        **CRITICAL INSTRUCTIONS:**
-        1. **NO SKIPPING:** Do NOT skip any scenes. Write scene-by-scene.
-        2. **NO SUMMARY:** This is NOT a summary. It is a full narration.
-        3. **BURMESE ONLY:** 100% Burmese text. No English.
-        4. **LENGTH:** The output must be long enough for a 15-20 minute video.
-        5. **EMOTION:** Capture the emotions, dialogues, and atmosphere.
-
-        **Start writing now:**
-        """
-
-
-        # 4. Generate Content
-        response = model.generate_content(
-            [video_file, prompt],
-            request_options={"timeout": 600}
-        )
-        
         progress_bar.progress(100)
-        status_text.text("🎉 Script Generated Successfully!")
-        return response.text
-
+        status_text.text("✅ File Ready!")
+        time.sleep(1) # Small pause
+        status_text.empty() # Clear text
+        progress_bar.empty() # Clear bar
+        return file
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"Upload Error: {e}")
         return None
 
-# --- ACTION BUTTON ---
-if uploaded_file and api_key:
-    if st.button("🚀 Generate Script (စတင်ရေးသားပါ)"):
-        # Save temp file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
-            tmp_file.write(uploaded_file.getvalue())
-            tmp_path = tmp_file.name
-            
-        result = generate_recap(tmp_path, api_key, model_name)
-        
-        if result:
-            st.markdown("### 📝 Generated Script:")
-            st.text_area("Your Script:", result, height=400)
-            
-            st.download_button(
-                label="📥 Download Script (.txt)",
-                data=result,
-                file_name=f"{uploaded_file.name}_recap.txt",
-                mime="text/plain"
-            )
-            
-        os.remove(tmp_path)
+# ==========================================
+# TOOL 1: MOVIE RECAP GENERATOR
+# ==========================================
+if app_mode == "🎬 Movie Recap Generator":
+    st.title("🎬 Movie Recap Script Generator")
+    st.markdown(f"##### 🚀 ရုပ်ရှင်ဖိုင်တင်လိုက်ရုံနဲ့ မြန်မာလို Recap Script အသေးစိတ် ရေးပေးမယ့် စနစ် (Model: `{model_name}`)")
 
-elif uploaded_file and not api_key:
-    st.warning("⚠️ Please enter your Google API Key in the sidebar.")
+    uploaded_video = st.file_uploader("Upload Movie File (.mp4, .mkv, .mov)", type=["mp4", "mkv", "mov", "avi"])
+
+    if uploaded_video and api_key:
+        genai.configure(api_key=api_key)
+        
+        if st.button("🚀 Generate Recap Script"):
+            # Save temp file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_video.name.split('.')[-1]}") as tmp:
+                tmp.write(uploaded_video.getvalue())
+                tmp_path = tmp.name
+            
+            gemini_file = upload_to_gemini(tmp_path)
+            
+            if gemini_file:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    
+                    # Prompt
+                    prompt = """
+                    You are a professional Burmese Movie Recap Scriptwriter.
+                    Watch the video and write an **EXTREMELY DETAILED** movie recap script in **Burmese**.
+
+                    **CRITICAL INSTRUCTIONS:**
+                    1. **SCENE-BY-SCENE:** Write scene-by-scene. Do NOT skip any scenes.
+                    2. **NO SUMMARY:** This is a full narration script, not a summary.
+                    3. **BURMESE ONLY:** 100% Burmese text. No English.
+                    4. **LENGTH:** Must be suitable for a 15-20 min video.
+                    5. **TONE:** Engaging, dramatic, and storytelling style.
+
+                    **Start writing now:**
+                    """
+                    
+                    with st.spinner("🤖 AI is watching the movie and writing the script..."):
+                        # Timeout တိုးထားပါတယ် (10 မိနစ်)
+                        response = model.generate_content([gemini_file, prompt], request_options={"timeout": 600})
+                        
+                    st.success("🎉 Script Generated Successfully!")
+                    st.subheader("📝 Generated Script")
+                    st.text_area("Result:", response.text, height=600)
+                    st.download_button("📥 Download Script (.txt)", response.text, file_name=f"{uploaded_video.name}_recap.txt")
+                
+                except Exception as e:
+                    st.error(f"Generation Error: {e}")
+            
+            os.remove(tmp_path)
+
+# ==========================================
+# TOOL 2: UNIVERSAL TRANSLATOR
+# ==========================================
+elif app_mode == "🌍 Universal Translator":
+    st.title("🌍 Universal Translator & Transcriber")
+    st.markdown(f"##### 🔊 Audio/Video/Text ဖိုင်များကို မြန်မာလို ဘာသာပြန်/စာထုတ်ပေးမယ့် စနစ် (Model: `{model_name}`)")
+    
+    uploaded_file = st.file_uploader("Upload File (.mp3, .mp4, .txt, .srt)", type=["mp3", "wav", "m4a", "mp4", "mkv", "mov", "txt", "srt"])
+
+    if uploaded_file and api_key:
+        genai.configure(api_key=api_key)
+        
+        if st.button("🚀 Process & Translate"):
+            file_ext = uploaded_file.name.split('.')[-1].lower()
+            
+            # --- TEXT/SRT PROCESSING ---
+            if file_ext in ['txt', 'srt']:
+                text_content = uploaded_file.getvalue().decode("utf-8")
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    
+                    prompt = f"""
+                    Translate the following text into **Burmese (Myanmar)**.
+                    - Keep the exact line count (important for SRT).
+                    - Do not translate if it's already Burmese.
+                    - Return ONLY the translated text.
+                    
+                    Input:
+                    {text_content}
+                    """
+                    
+                    with st.spinner("🤖 Translating Text..."):
+                        response = model.generate_content(prompt)
+                        
+                    st.success("🎉 Translation Complete!")
+                    st.subheader("📝 Translated Text")
+                    st.text_area("Result:", response.text, height=400)
+                    st.download_button("📥 Download Translated File", response.text, file_name=f"translated_{uploaded_file.name}")
+                except Exception as e:
+                    st.error(f"Text Processing Error: {e}")
+
+            # --- MEDIA (AUDIO/VIDEO) PROCESSING ---
+            else:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}") as tmp:
+                    tmp.write(uploaded_file.getvalue())
+                    tmp_path = tmp.name
+                
+                gemini_file = upload_to_gemini(tmp_path)
+                
+                if gemini_file:
+                    try:
+                        model = genai.GenerativeModel(model_name)
+                        
+                        prompt = """
+                        Listen to the audio/video.
+                        **Task:** Generate a full transcript in **Burmese (Myanmar)**.
+                        
+                        **LOGIC:**
+                        - If audio is English/Thai -> **Translate** to Burmese.
+                        - If audio is Burmese -> **Transcribe** exactly as spoken.
+                        
+                        **CRITICAL:**
+                        - Do NOT summarize.
+                        - Write sentence by sentence.
+                        - Return ONLY the Burmese text.
+                        """
+                        
+                        with st.spinner("🤖 Transcribing & Translating..."):
+                            response = model.generate_content([gemini_file, prompt], request_options={"timeout": 600})
+                            
+                        st.success("🎉 Processing Complete!")
+                        st.subheader("📝 Translated Transcript")
+                        st.text_area("Result:", response.text, height=600)
+                        st.download_button("📥 Download Transcript", response.text, file_name=f"{uploaded_file.name}_transcript.txt")
+                    except Exception as e:
+                        st.error(f"Generation Error: {e}")
+                
+                os.remove(tmp_path)
+
+elif not api_key:
+    st.warning("⚠️ Please enter your API Key in the sidebar to start!")
