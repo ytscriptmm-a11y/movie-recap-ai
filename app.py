@@ -5,80 +5,95 @@ import os
 import tempfile
 from PIL import Image
 
-# --- PAGE CONFIGURATION ---
+# --- PAGE CONFIGURATION (MUST BE FIRST) ---
 st.set_page_config(
     page_title="Ultimate AI Studio",
-    page_icon="🤖",
+    page_icon="✨",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# --- CUSTOM CSS (Dark Theme & Styling) ---
+# --- PRO CUSTOM CSS (Dark & Modern) ---
 st.markdown("""
 <style>
-    .stApp { background-color: #0E1117; color: #FAFAFA; }
-    h1, h2, h3 { color: #58A6FF !important; font-family: sans-serif; }
-    .stButton>button { 
-        background-color: #238636; 
-        color: white; 
-        font-weight: bold; 
-        border-radius: 8px; 
-        border: none;
-        padding: 0.5rem 1rem;
+    /* Main Background & Text */
+    .stApp {
+        background-color: #0E1117;
+        color: #E0E0E0;
     }
-    .stButton>button:hover { background-color: #2EA043; box-shadow: 0 0 10px #2EA043; }
-    .stSuccess { background-color: #1f2937; color: #4ade80; }
-    .stInfo { background-color: #1f2937; color: #60a5fa; }
-    .stWarning { background-color: #1f2937; color: #facc15; }
-    .stError { background-color: #1f2937; color: #f87171; }
     
-    /* Image Grid Styling */
-    .image-grid { display: flex; gap: 10px; margin-bottom: 20px; }
+    /* Headings */
+    h1, h2, h3 {
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        color: #FFFFFF !important;
+    }
+    h1 { background: -webkit-linear-gradient(45deg, #4facfe, #00f2fe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+    /* Tabs Styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: #1F2937;
+        border-radius: 10px 10px 0px 0px;
+        gap: 1px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        color: #A0AEC0;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #0E1117;
+        color: #38BDF8;
+        border-top: 2px solid #38BDF8;
+    }
+
+    /* Buttons */
+    .stButton>button {
+        background: linear-gradient(90deg, #3B82F6 0%, #2563EB 100%);
+        color: white;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+
+    /* Input Fields */
+    .stTextInput>div>div>input, .stTextArea>div>div>textarea {
+        background-color: #1F2937;
+        color: #F3F4F6;
+        border: 1px solid #374151;
+        border-radius: 8px;
+    }
+    .stTextInput>div>div>input:focus, .stTextArea>div>div>textarea:focus {
+        border-color: #38BDF8;
+        box-shadow: 0 0 0 1px #38BDF8;
+    }
+
+    /* Expanders & Cards */
+    .streamlit-expanderHeader {
+        background-color: #1F2937;
+        border-radius: 8px;
+        color: #F3F4F6;
+    }
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #111827;
+        border-right: 1px solid #374151;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR: SETTINGS & NAVIGATION ---
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/4712/4712035.png", width=60)
-    st.title("🎛️ Control Panel")
-    
-    # Navigation Mode (Updated with Thumbnail Tool)
-    app_mode = st.radio("Select Tool:", [
-        "🎬 Movie Recap Generator", 
-        "🌍 Universal Translator",
-        "🎨 AI Thumbnail Studio"
-    ])
-    
-    st.markdown("---")
-    
-    # API Key Input
-    api_key = st.text_input("🔑 Google API Key", type="password", placeholder="Paste your API Key here...")
-    
-    # Model Selection (Updated)
-    st.subheader("🧠 Model Settings")
-    model_name = st.selectbox(
-        "Select AI Model:",
-        [
-            "gemini-2.0-flash-exp", # Recommended for Vision
-            "gemini-1.5-pro", 
-            "models/gemini-3-pro-image-preview", # Requested Model
-            "gemini-1.5-flash", 
-            "models/gemini-2.5-pro",
-            "models/gemini-3-pro-preview"
-        ],
-        index=0 
-    )
-    
-    st.info(f"💡 **Current Model:** `{model_name}`")
-
-    # Writing Style Upload (Only for Movie Recap)
-    if app_mode == "🎬 Movie Recap Generator":
-        st.markdown("---")
-        st.subheader("📝 Writing Style (Optional)")
-        style_file = st.file_uploader("Upload a sample script (.txt) to mimic style:", type=["txt"])
-
 # --- HELPER FUNCTIONS ---
-
 def upload_to_gemini(file_path, mime_type=None):
     """Uploads media file to Google AI Studio"""
     try:
@@ -93,201 +108,229 @@ def upload_to_gemini(file_path, mime_type=None):
         st.error(f"Upload Error: {e}")
         return None
 
-# ==========================================
-# TOOL 1: MOVIE RECAP GENERATOR (BATCH MODE)
-# ==========================================
-if app_mode == "🎬 Movie Recap Generator":
-    st.title("🎬 Movie Recap Script Generator (Batch Mode)")
-    st.markdown(f"##### 🚀 ရုပ်ရှင်ဖိုင်အများကြီးကို တင်လိုက်ပါ၊ AI က တစ်ခုပြီးမှတစ်ခု Script ရေးပေးပါလိမ့်မယ်။")
-
-    uploaded_videos = st.file_uploader("Upload Movie Files (.mp4, .mkv, .mov)", type=["mp4", "mkv", "mov", "avi"], accept_multiple_files=True)
-
-    if uploaded_videos and api_key:
+# --- SIDEBAR: GLOBAL SETTINGS ---
+with st.sidebar:
+    st.markdown("### ⚙️ Settings")
+    st.info("Configure your AI settings here. These apply to all tools.")
+    
+    # API Key Input
+    api_key = st.text_input("🔑 Google API Key", type="password", placeholder="Enter API Key...")
+    if api_key:
         genai.configure(api_key=api_key)
-        st.info(f"📂 Total videos selected: **{len(uploaded_videos)}**")
+        st.caption("✅ API Key Connected")
+    else:
+        st.caption("⚠️ API Key Required")
 
-        if st.button("🚀 Generate All Scripts"):
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
+    st.markdown("---")
+    
+    # Model Selection
+    st.markdown("#### 🧠 Model Selection")
+    model_name = st.selectbox(
+        "Choose AI Model:",
+        [
+            "gemini-2.0-flash-exp", 
+            "gemini-1.5-pro", 
+            "models/gemini-3-pro-image-preview",
+            "gemini-1.5-flash", 
+            "models/gemini-2.5-pro"
+        ],
+        index=0 
+    )
+    st.caption(f"Active: `{model_name}`")
+    st.markdown("---")
+    st.markdown("Made with ❤️ by Manoj")
+
+# --- MAIN PAGE HEADER ---
+st.title("✨ Ultimate AI Studio")
+st.markdown("Your all-in-one workspace for Video Recaps, Translation, and Creative Design.")
+st.markdown("---")
+
+# --- TABS NAVIGATION (THE NEW DESIGN) ---
+tab1, tab2, tab3 = st.tabs(["🎬 Movie Recap Generator", "🌍 Universal Translator", "🎨 AI Thumbnail Studio"])
+
+# ==========================================
+# TAB 1: MOVIE RECAP GENERATOR
+# ==========================================
+with tab1:
+    st.header("🎬 Movie Recap Script Generator")
+    st.caption("Upload multiple movie files and let AI write detailed narration scripts scene-by-scene.")
+
+    # Layout: Input on left, settings on right (using columns for pro look)
+    col_input, col_settings = st.columns([2, 1])
+
+    with col_settings:
+        with st.expander("⚙️ Advanced Settings (Writing Style)", expanded=False):
+            st.markdown("Upload a sample text file to mimic a specific narration style.")
+            style_file = st.file_uploader("Upload Sample Script (.txt)", type=["txt"])
             style_text = ""
-            if style_file is not None:
+            if style_file:
                 style_content = style_file.getvalue().decode("utf-8")
                 style_text = f"\n\n**WRITING STYLE REFERENCE:**\nPlease mimic the tone and style of the following text:\n---\n{style_content}\n---\n"
+                st.success("Style Loaded!")
 
-            for i, video_file in enumerate(uploaded_videos):
-                status_text.text(f"⏳ Processing Video {i+1} of {len(uploaded_videos)}: '{video_file.name}'...")
+    with col_input:
+        uploaded_videos = st.file_uploader("Upload Movie Files", type=["mp4", "mkv", "mov", "avi"], accept_multiple_files=True)
+
+    if uploaded_videos:
+        st.info(f"📂 **{len(uploaded_videos)}** videos queued for processing.")
+        
+        if st.button("🚀 Start Batch Generation", type="primary"):
+            if not api_key:
+                st.error("Please enter your API Key in the sidebar first!")
+            else:
+                progress_bar = st.progress(0)
+                status_box = st.empty()
                 
-                with st.expander(f"✅ Result: {video_file.name}", expanded=True):
-                    try:
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{video_file.name.split('.')[-1]}") as tmp:
-                            tmp.write(video_file.getvalue())
-                            tmp_path = tmp.name
+                for i, video_file in enumerate(uploaded_videos):
+                    status_box.markdown(f"### ⏳ Processing: `{video_file.name}`...")
+                    
+                    with st.expander(f"✅ Result: {video_file.name}", expanded=True):
+                        try:
+                            # Temp file handling
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{video_file.name.split('.')[-1]}") as tmp:
+                                tmp.write(video_file.getvalue())
+                                tmp_path = tmp.name
 
-                        st.caption("⬆️ Uploading to Gemini...")
-                        gemini_file = upload_to_gemini(tmp_path)
+                            with st.spinner("⬆️ Uploading to Gemini Cloud..."):
+                                gemini_file = upload_to_gemini(tmp_path)
 
-                        if gemini_file:
-                            model = genai.GenerativeModel(model_name)
-                            prompt = f"""
-                            You are a professional Burmese Movie Recap Scriptwriter.
-                            Watch the video and write an **EXTREMELY DETAILED** movie recap script in **Burmese**.
-                            {style_text}
-                            **CRITICAL INSTRUCTIONS:**
-                            1. **SCENE-BY-SCENE:** Write scene-by-scene. Do NOT skip any scenes.
-                            2. **NO SUMMARY:** This is a full narration script, not a summary.
-                            3. **BURMESE ONLY:** 100% Burmese text. No English.
-                            4. **LENGTH:** Must be suitable for a 15-20 min video.
-                            5. **TONE:** Engaging, dramatic, and storytelling style.
-                            **Start writing now:**
-                            """
-                            st.caption("🤖 AI is writing the script...")
-                            response = model.generate_content([gemini_file, prompt], request_options={"timeout": 600})
+                            if gemini_file:
+                                model = genai.GenerativeModel(model_name)
+                                prompt = f"""
+                                You are a professional Burmese Movie Recap Scriptwriter.
+                                Watch the video and write an **EXTREMELY DETAILED** movie recap script in **Burmese**.
+                                {style_text}
+                                **CRITICAL INSTRUCTIONS:**
+                                1. **SCENE-BY-SCENE:** Write scene-by-scene. Do NOT skip any scenes.
+                                2. **NO SUMMARY:** This is a full narration script, not a summary.
+                                3. **BURMESE ONLY:** 100% Burmese text. No English.
+                                4. **LENGTH:** Must be suitable for a 15-20 min video.
+                                5. **TONE:** Engaging, dramatic, and storytelling style.
+                                """
+                                
+                                with st.spinner("🤖 AI is watching & writing..."):
+                                    response = model.generate_content([gemini_file, prompt], request_options={"timeout": 600})
+                                
+                                st.success(f"🎉 Script Generated!")
+                                st.text_area(f"Script Preview", response.text, height=200, key=f"text_{i}")
+                                st.download_button(f"📥 Download .txt", response.text, file_name=f"{video_file.name}_recap.txt", key=f"btn_{i}")
+                            else:
+                                st.error("Upload failed.")
                             
-                            st.success(f"🎉 Script for '{video_file.name}' Finished!")
-                            st.text_area(f"Script ({video_file.name})", response.text, height=300, key=f"text_{i}")
-                            st.download_button(f"📥 Download Script", response.text, file_name=f"{video_file.name}_recap.txt", key=f"btn_{i}")
-                        else:
-                            st.error(f"Failed to process {video_file.name}")
-                        os.remove(tmp_path)
-                    except Exception as e:
-                        st.error(f"Error processing {video_file.name}: {e}")
+                            os.remove(tmp_path)
+                        except Exception as e:
+                            st.error(f"Error: {e}")
 
-                progress_bar.progress((i + 1) / len(uploaded_videos))
-                time.sleep(1)
-
-            status_text.text("✅ All Videos Processed Successfully!")
-            st.balloons()
+                    progress_bar.progress((i + 1) / len(uploaded_videos))
+                    time.sleep(1)
+                
+                status_box.success("✅ All batch jobs completed successfully!")
+                st.balloons()
 
 # ==========================================
-# TOOL 2: UNIVERSAL TRANSLATOR
+# TAB 2: UNIVERSAL TRANSLATOR
 # ==========================================
-elif app_mode == "🌍 Universal Translator":
-    st.title("🌍 Universal Translator & Transcriber")
-    st.markdown(f"##### 🔊 Audio/Video/Text ဖိုင်များကို မြန်မာလို ဘာသာပြန်/စာထုတ်ပေးမယ့် စနစ်")
-    
+with tab2:
+    st.header("🌍 Universal Translator & Transcriber")
+    st.caption("Translate text, audio, or video files directly into Burmese (Myanmar).")
+
     uploaded_file = st.file_uploader("Upload File (.mp3, .mp4, .txt, .srt)", type=["mp3", "wav", "m4a", "mp4", "mkv", "mov", "txt", "srt"])
 
-    if uploaded_file and api_key:
-        genai.configure(api_key=api_key)
-        
-        if st.button("🚀 Process & Translate"):
-            file_ext = uploaded_file.name.split('.')[-1].lower()
-            
-            if file_ext in ['txt', 'srt']:
-                text_content = uploaded_file.getvalue().decode("utf-8")
-                try:
-                    model = genai.GenerativeModel(model_name)
-                    prompt = f"Translate the following text into **Burmese (Myanmar)**. Return ONLY the translated text.\n\nInput:\n{text_content}"
-                    with st.spinner("🤖 Translating Text..."):
-                        response = model.generate_content(prompt)
-                    st.success("🎉 Translation Complete!")
-                    st.text_area("Result:", response.text, height=400)
-                    st.download_button("📥 Download Translated File", response.text, file_name=f"translated_{uploaded_file.name}")
-                except Exception as e:
-                    st.error(f"Text Processing Error: {e}")
-
-            else:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}") as tmp:
-                    tmp.write(uploaded_file.getvalue())
-                    tmp_path = tmp.name
-                
-                gemini_file = upload_to_gemini(tmp_path)
-                if gemini_file:
-                    try:
-                        model = genai.GenerativeModel(model_name)
-                        prompt = "Listen/Watch. Generate a full transcript in **Burmese (Myanmar)**. If English/Thai -> Translate. If Burmese -> Transcribe."
-                        with st.spinner("🤖 Transcribing & Translating..."):
-                            response = model.generate_content([gemini_file, prompt], request_options={"timeout": 600})
-                        st.success("🎉 Processing Complete!")
-                        st.text_area("Result:", response.text, height=600)
-                        st.download_button("📥 Download Transcript", response.text, file_name=f"{uploaded_file.name}_transcript.txt")
-                    except Exception as e:
-                        st.error(f"Generation Error: {e}")
-                os.remove(tmp_path)
-
-# ==========================================
-# TOOL 3: AI THUMBNAIL STUDIO (NEW FEATURE)
-# ==========================================
-elif app_mode == "🎨 AI Thumbnail Studio":
-    st.title("🎨 AI Thumbnail Studio")
-    st.markdown("##### 🖼️ နမူနာပုံ (၄) ပုံတင်ပြီး မိမိလိုချင်တဲ့ Youtube Thumbnail ပုံစံကို ဖန်တီးပါ")
-
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.info("အဆင့် (၁) - နမူနာပုံများ တင်ပါ")
-        uploaded_images = st.file_uploader("Upload Reference Images (Max 4)", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=True)
-        
-    with col2:
-        st.info("အဆင့် (၂) - လိုချင်တဲ့ပုံစံ ရေးပါ")
-        user_prompt = st.text_area("Thumbnail Prompt (e.g., 'Action movie style, red background, hero holding a sword')", height=150)
-
-    # Preview Images
-    if uploaded_images:
-        st.subheader("👀 Reference Images Preview")
-        cols = st.columns(4)
-        for idx, img_file in enumerate(uploaded_images[:4]): # Limit to 4
-            with cols[idx]:
-                image = Image.open(img_file)
-                st.image(image, caption=f"Ref {idx+1}", use_column_width=True)
-
-    if st.button("✨ Generate Thumbnail Concept") and api_key and uploaded_images and user_prompt:
-        genai.configure(api_key=api_key)
-        
-        try:
-            # Prepare inputs
-            input_content = [user_prompt]
-            temp_files = []
-            
-            with st.spinner("🎨 AI is analyzing your images and designing the thumbnail..."):
-                # Upload images to Gemini
-                for img_file in uploaded_images[:4]:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-                        tmp.write(img_file.getvalue())
-                        tmp_path = tmp.name
-                        temp_files.append(tmp_path)
+    if uploaded_file:
+        col_act, col_info = st.columns([1, 2])
+        with col_act:
+            if st.button("🚀 Process File"):
+                if not api_key:
+                    st.error("Please enter API Key in Sidebar!")
+                else:
+                    file_ext = uploaded_file.name.split('.')[-1].lower()
                     
-                    gemini_img = upload_to_gemini(tmp_path, mime_type="image/jpeg")
-                    if gemini_img:
-                        input_content.append(gemini_img)
+                    # Text Mode
+                    if file_ext in ['txt', 'srt']:
+                        text_content = uploaded_file.getvalue().decode("utf-8")
+                        try:
+                            model = genai.GenerativeModel(model_name)
+                            prompt = f"Translate to **Burmese**. Return ONLY translated text.\nInput:\n{text_content}"
+                            with st.spinner("Processing Text..."):
+                                response = model.generate_content(prompt)
+                            st.success("Done!")
+                            st.text_area("Translation", response.text, height=300)
+                            st.download_button("📥 Download", response.text, file_name=f"translated_{uploaded_file.name}")
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                    
+                    # Media Mode
+                    else:
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}") as tmp:
+                            tmp.write(uploaded_file.getvalue())
+                            tmp_path = tmp.name
+                        
+                        gemini_file = upload_to_gemini(tmp_path)
+                        if gemini_file:
+                            try:
+                                model = genai.GenerativeModel(model_name)
+                                prompt = "Listen/Watch. Generate full transcript in **Burmese**. English/Thai -> Translate. Burmese -> Transcribe."
+                                with st.spinner("Analyzing Audio/Video..."):
+                                    response = model.generate_content([gemini_file, prompt], request_options={"timeout": 600})
+                                st.success("Done!")
+                                st.text_area("Transcript", response.text, height=400)
+                                st.download_button("📥 Download", response.text, file_name=f"{uploaded_file.name}_transcript.txt")
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+                        os.remove(tmp_path)
 
-                # Send to Model
-                model = genai.GenerativeModel(model_name)
-                
-                # Specialized Prompt for Thumbnail Generation/Description
-                system_instruction = """
-                You are an expert YouTube Thumbnail Designer and AI Prompt Engineer.
-                
-                **TASK:**
-                1. Analyze the uploaded reference images (Style, Color Palette, Composition, Font choice).
-                2. Combine these styles with the user's specific text request.
-                3. Create a **Comprehensive Thumbnail Design Plan**.
-                
-                **OUTPUT FORMAT:**
-                - **Title:** Catchy Title for the Thumbnail.
-                - **Visual Description:** Detailed description of the scene, characters, and background.
-                - **Text Overlay:** What text should be on the thumbnail?
-                - **AI Image Prompt:** A highly detailed prompt (optimized for Midjourney/Stable Diffusion) to generate this exact image.
-                """
-                
-                input_content.append(system_instruction)
-                
-                response = model.generate_content(input_content)
-                
-                # Cleanup
-                for path in temp_files:
-                    os.remove(path)
-                
-                st.success("✨ Thumbnail Design Generated!")
-                st.markdown("### 🎨 AI Design Recommendation")
-                st.write(response.text)
-                
-                st.download_button("📥 Download Design Plan", response.text, file_name="thumbnail_plan.txt")
+# ==========================================
+# TAB 3: AI THUMBNAIL STUDIO
+# ==========================================
+with tab3:
+    st.header("🎨 AI Thumbnail Studio")
+    st.caption("Generate professional YouTube thumbnail concepts from reference images.")
 
-        except Exception as e:
-            st.error(f"Error: {e}")
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        st.markdown("#### 1. Upload References")
+        uploaded_images = st.file_uploader("Upload Images (Max 4)", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=True)
+        if uploaded_images:
+            st.image([Image.open(img) for img in uploaded_images[:4]], width=100, caption=[f"Img {i+1}" for i in range(len(uploaded_images[:4]))])
 
-elif not api_key:
-    st.warning("⚠️ Please enter your API Key in the sidebar to start!")
+    with c2:
+        st.markdown("#### 2. Describe Your Vision")
+        user_prompt = st.text_area("Enter Prompt", placeholder="e.g., 'Action movie style, high contrast, hero holding a sword, text: REVENGE'", height=150)
+        
+        if st.button("✨ Generate Concept"):
+            if not api_key or not uploaded_images or not user_prompt:
+                st.warning("Please check API Key, Images, and Prompt.")
+            else:
+                try:
+                    input_content = [user_prompt]
+                    temp_files = []
+                    
+                    with st.spinner("🎨 Designing..."):
+                        for img_file in uploaded_images[:4]:
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+                                tmp.write(img_file.getvalue())
+                                temp_files.append(tmp.name)
+                            gemini_img = upload_to_gemini(tmp.name, mime_type="image/jpeg")
+                            if gemini_img: input_content.append(gemini_img)
 
+                        model = genai.GenerativeModel(model_name)
+                        sys_prompt = """
+                        You are an expert YouTube Thumbnail Designer.
+                        Analyze images + user prompt.
+                        Output: Title, Visual Description, Text Overlay, and a Detailed Image Generation Prompt.
+                        """
+                        input_content.append(sys_prompt)
+                        response = model.generate_content(input_content)
+                        
+                        for p in temp_files: os.remove(p)
+                        
+                        st.success("Generated!")
+                        st.markdown(response.text)
+                        st.download_button("📥 Save Plan", response.text, file_name="thumbnail_plan.txt")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+# --- FOOTER ---
+st.markdown("---")
+st.markdown("<div style='text-align: center; color: #6B7280; font-size: 0.8rem;'>© 2025 Ultimate AI Studio. Powered by Google Gemini.</div>", unsafe_allow_html=True)
