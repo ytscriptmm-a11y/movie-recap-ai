@@ -5,3 +5,10 @@ google-generativeai
 Pillow
 PyPDF2
 python-docx
+streamlit
+google-generativeai
+PyPDF2
+python-docx
+pillow
+requests
+gdown
