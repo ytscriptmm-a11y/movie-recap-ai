@@ -313,8 +313,8 @@ with tab3:
                             img = Image.open(img_file)
                             input_content.append(img)
                         
-                        # ⚠️ HERE IS THE FIX: Force use of models/gemini-3-pro-image-preview for Vision
-                        model_vision = genai.GenerativeModel("models/gemini-3-pro-image-preview")
+                        # ⚠️ HERE IS THE FIX: Force use of gemini-1.5-pro for Vision
+                        model_vision = genai.GenerativeModel("gemini-1.5-pro")
                         input_content.append("\n\nAct as a professional YouTube Thumbnail Designer. Output a structured plan: 1. Title, 2. Visual Description, 3. Text Overlay, 4. Detailed Image Generation Prompt.")
                         
                         response = model_vision.generate_content(input_content)
@@ -330,4 +330,5 @@ with tab3:
 
 # --- FOOTER ---
 st.markdown("<div style='text-align: center; margin-top: 50px; opacity: 0.5; font-size: 0.8rem;'>Glassmorphism Edition • Powered by Gemini</div>", unsafe_allow_html=True)
+
 
