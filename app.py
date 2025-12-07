@@ -149,7 +149,7 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Main Container - Max Width 2000px */
+    /* Main Container - Max Width 1800px */
     .main .block-container {
         max-width: 1800px !important;
         padding: 2rem 2rem !important;
@@ -1582,4 +1582,5 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
+
 
