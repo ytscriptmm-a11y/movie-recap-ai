@@ -68,28 +68,28 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Main Container - Narrower */
+    /* Main Container - Wider */
     .main .block-container {
-        max-width: 1000px !important;
+        max-width: 1500px !important;
         padding: 2rem 1rem !important;
     }
     
-    /* Card Styling */
+    /* Card Styling - More visible borders */
     div[data-testid="stVerticalBlockBorderWrapper"] > div {
-        background: linear-gradient(145deg, rgba(30, 30, 50, 0.9), rgba(20, 20, 35, 0.95)) !important;
+        background: linear-gradient(145deg, rgba(30, 30, 50, 0.95), rgba(20, 20, 35, 0.98)) !important;
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border: 2px solid rgba(139, 92, 246, 0.3) !important;
         border-radius: 16px !important;
-        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(139, 92, 246, 0.1);
         padding: 1.5rem;
     }
     
-    /* Input Fields */
+    /* Input Fields - More visible borders */
     .stTextInput input, .stTextArea textarea {
-        background: rgba(255, 255, 255, 0.03) !important;
+        background: rgba(255, 255, 255, 0.05) !important;
         color: #ffffff !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border: 2px solid rgba(139, 92, 246, 0.3) !important;
         border-radius: 10px !important;
         padding: 12px 16px !important;
         font-size: 14px !important;
@@ -97,16 +97,20 @@ st.markdown("""
     }
     
     .stTextInput input:focus, .stTextArea textarea:focus {
-        border-color: rgba(139, 92, 246, 0.5) !important;
-        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1) !important;
+        border-color: rgba(139, 92, 246, 0.7) !important;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15) !important;
     }
     
-    /* Select Box */
+    /* Select Box - More visible border */
     .stSelectbox div[data-baseweb="select"] > div {
-        background: rgba(255, 255, 255, 0.03) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 2px solid rgba(139, 92, 246, 0.3) !important;
         border-radius: 10px !important;
         color: white !important;
+    }
+    
+    .stSelectbox div[data-baseweb="select"] > div:hover {
+        border-color: rgba(139, 92, 246, 0.5) !important;
     }
     
     /* Buttons */
@@ -134,46 +138,50 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
     }
     
-    /* Tabs */
+    /* Tabs - More visible */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        background: rgba(0, 0, 0, 0.2);
+        background: rgba(139, 92, 246, 0.1);
         padding: 8px;
         border-radius: 12px;
+        border: 1px solid rgba(139, 92, 246, 0.2);
     }
     
     .stTabs [data-baseweb="tab"] {
         background: transparent;
         border-radius: 8px;
-        color: rgba(255, 255, 255, 0.6);
-        border: none;
+        color: rgba(255, 255, 255, 0.7);
+        border: 1px solid transparent;
         padding: 10px 20px;
         font-weight: 500;
         transition: all 0.3s ease;
     }
     
     .stTabs [data-baseweb="tab"]:hover {
-        color: rgba(255, 255, 255, 0.9);
-        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.95);
+        background: rgba(139, 92, 246, 0.15);
+        border: 1px solid rgba(139, 92, 246, 0.3);
     }
     
     .stTabs [aria-selected="true"] {
         background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%) !important;
         color: white !important;
+        border: none !important;
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
     }
     
-    /* File Uploader */
+    /* File Uploader - More visible border */
     [data-testid="stFileUploader"] {
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(139, 92, 246, 0.05);
         border-radius: 12px;
         padding: 16px;
-        border: 2px dashed rgba(139, 92, 246, 0.3);
+        border: 2px dashed rgba(139, 92, 246, 0.5) !important;
         transition: all 0.3s ease;
     }
     
     [data-testid="stFileUploader"]:hover {
-        border-color: rgba(139, 92, 246, 0.5);
-        background: rgba(139, 92, 246, 0.05);
+        border-color: rgba(139, 92, 246, 0.8) !important;
+        background: rgba(139, 92, 246, 0.1);
     }
     
     /* Typography */
@@ -193,10 +201,10 @@ st.markdown("""
         color: rgba(255, 255, 255, 0.8) !important;
     }
     
-    /* Queue Items */
+    /* Queue Items - More visible borders */
     .queue-item {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.05);
+        border: 2px solid rgba(139, 92, 246, 0.25);
         border-radius: 10px;
         padding: 12px 16px;
         margin: 8px 0;
@@ -204,22 +212,23 @@ st.markdown("""
     }
     
     .queue-item:hover {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(139, 92, 246, 0.4);
     }
     
     .queue-item.processing {
-        background: rgba(139, 92, 246, 0.1);
-        border: 1px solid rgba(139, 92, 246, 0.3);
+        background: rgba(139, 92, 246, 0.15);
+        border: 2px solid rgba(139, 92, 246, 0.6);
     }
     
     .queue-item.completed {
-        background: rgba(16, 185, 129, 0.1);
-        border: 1px solid rgba(16, 185, 129, 0.3);
+        background: rgba(16, 185, 129, 0.15);
+        border: 2px solid rgba(16, 185, 129, 0.5);
     }
     
     .queue-item.failed {
-        background: rgba(239, 68, 68, 0.1);
-        border: 1px solid rgba(239, 68, 68, 0.3);
+        background: rgba(239, 68, 68, 0.15);
+        border: 2px solid rgba(239, 68, 68, 0.5);
     }
     
     /* Info/Success/Warning/Error boxes */
@@ -650,10 +659,12 @@ with st.container(border=True):
             "Writer Model",
             [
                 "gemini-2.0-flash-exp", 
-                "gemini-1.5-pro", 
-                "models/gemini-2.5-pro",
+                "gemini-1.5-pro",
                 "gemini-1.5-flash", 
-                "models/gemini-2.5-flash"        
+                "models/gemini-2.5-pro",
+                "models/gemini-2.5-flash",
+                "models/gemini-3-pro-preview",
+                "models/gemini-3-pro-image-preview"
             ],
             label_visibility="collapsed"
         )
