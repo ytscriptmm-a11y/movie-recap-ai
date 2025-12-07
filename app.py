@@ -868,135 +868,269 @@ with tab2:
                 st.info("💡 Upload a file and click 'Translate Now' to start.")
 
 # ==========================================
-# TAB 3: AI THUMBNAIL STUDIO (GEMINI)
+# TAB 3: AI THUMBNAIL STUDIO (GEMINI API)
 # ==========================================
 with tab3:
     st.write("")
-    with st.container(border=True):
-        st.subheader("🎨 AI Thumbnail Studio")
-        
-        st.markdown("""
-        <div style='text-align: center; padding: 40px 20px;'>
-            <h2 style='margin-bottom: 10px;'>🖼️ Create Thumbnails with Gemini AI</h2>
-            <p style='opacity: 0.8; margin-bottom: 30px;'>
-                Google Gemini ကို သုံးပြီး professional thumbnails တွေ ဖန်တီးလိုက်ပါ
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
-        with col_btn2:
-            st.link_button(
-                "🚀 Open Google Gemini",
-                "https://gemini.google.com/app",
-                use_container_width=True
+    
+    # Initialize thumbnail session states
+    if 'generated_images' not in st.session_state:
+        st.session_state['generated_images'] = []
+    if 'thumbnail_generating' not in st.session_state:
+        st.session_state['thumbnail_generating'] = False
+    
+    col_thumb_left, col_thumb_right = st.columns([1, 1], gap="medium")
+    
+    with col_thumb_left:
+        with st.container(border=True):
+            st.subheader("🎨 AI Thumbnail Generator")
+            st.markdown("<p style='opacity: 0.7;'>Gemini API နဲ့ တိုက်ရိုက် Image Generate လုပ်ပါ</p>", unsafe_allow_html=True)
+            
+            # Prompt Templates
+            st.markdown("**📝 Quick Templates:**")
+            prompt_templates = {
+                "✍️ Custom Prompt": "",
+                "🎬 Movie Recap Thumbnail": "Create a dramatic YouTube movie recap thumbnail, 1280x720 pixels, with cinematic dark color grading, showing dramatic scene with emotional expressions, bold eye-catching title text, professional high contrast style",
+                "😱 Shocking/Dramatic Style": "Create a YouTube thumbnail with shocked surprised expression style, bright red and yellow accent colors, large bold text with outline, arrow pointing to key element, exaggerated expressions, 1280x720 pixels",
+                "🎭 Before/After Comparison": "Create a before and after comparison YouTube thumbnail, split screen design with clear dividing line, contrasting colors for each side, bold BEFORE and AFTER labels, 1280x720 pixels",
+                "🔥 Top 10 List Style": "Create a Top 10 list style YouTube thumbnail, large number prominently displayed, grid collage of related images, bright energetic colors, bold sans-serif title, 1280x720 pixels",
+                "💡 Tutorial/How-To": "Create a tutorial how-to YouTube thumbnail, clean professional look, step numbers visible, friendly approachable style, light background with accent colors, 1280x720 pixels",
+                "🌄 Cinematic Landscape": "Create a cinematic landscape thumbnail with dramatic lighting, golden hour colors, epic wide shot composition, movie poster style, 1280x720 pixels",
+                "👤 Portrait Style": "Create a professional portrait style thumbnail with soft lighting, blurred background bokeh effect, centered subject, warm color tones, 1280x720 pixels"
+            }
+            
+            selected_template = st.selectbox(
+                "Template ရွေးပါ:",
+                list(prompt_templates.keys()),
+                key="thumb_template"
             )
-        
-        st.markdown("---")
-        
-        # Thumbnail prompt templates
-        st.markdown("### 📝 Thumbnail Prompt Templates")
-        st.markdown("<p style='opacity: 0.7;'>Copy ကူးပြီး Gemini မှာ paste လုပ်ပါ</p>", unsafe_allow_html=True)
-        
-        prompt_templates = {
-            "🎬 Movie Recap Thumbnail": """Create a dramatic movie recap thumbnail with:
-- Split image showing 2-3 key dramatic scenes
-- Bold, eye-catching title text in Burmese/Myanmar font style
-- Dark cinematic color grading
-- Emotional character expressions
-- Size: 1280x720 pixels (YouTube thumbnail)
-- Style: Professional, dramatic, high contrast
-
-Movie title: [သင့်ရုပ်ရှင်နာမည်]""",
             
-            "😱 Shocking/Dramatic Style": """Create a YouTube thumbnail with SHOCKED expression style:
-- A person with extremely surprised/shocked face
-- Bright red and yellow accent colors
-- Large bold text with outline
-- Arrow or circle pointing to key element
-- Exaggerated expressions
-- Size: 1280x720 pixels
-
-Topic: [သင့်ခေါင်းစဉ်]""",
+            # Main prompt input
+            default_prompt = prompt_templates[selected_template]
+            user_prompt = st.text_area(
+                "🖼️ Image Prompt:",
+                value=default_prompt,
+                height=150,
+                placeholder="Describe the thumbnail you want to generate...\nExample: Create a dramatic movie recap thumbnail with dark cinematic colors, showing an emotional scene...",
+                key="thumb_prompt_input"
+            )
             
-            "🎭 Before/After Comparison": """Create a before/after comparison thumbnail:
-- Split screen design (left: before, right: after)
-- Clear dividing line or arrow in middle
-- Contrasting colors for each side
-- Bold "BEFORE" and "AFTER" labels
-- Dramatic transformation visible
-- Size: 1280x720 pixels
-
-Subject: [ဘာအကြောင်းအရာ]""",
+            # Additional customization
+            st.markdown("**⚙️ Customization:**")
+            col_opt1, col_opt2 = st.columns(2)
             
-            "🔥 Top 10 / List Style": """Create a Top 10 list style thumbnail:
-- Large number (10, 5, etc.) prominently displayed
-- Grid or collage of related images
-- Bright, energetic colors
-- Bold sans-serif title text
-- Professional YouTube style
-- Size: 1280x720 pixels
-
-List topic: [သင့်စာရင်းခေါင်းစဉ်]""",
+            with col_opt1:
+                add_text = st.text_input(
+                    "Text on Image (Optional):",
+                    placeholder="e.g., EP.1, PART 2",
+                    key="thumb_text"
+                )
             
-            "💡 Tutorial/How-To Style": """Create a tutorial thumbnail:
-- Clean, professional look
-- Step numbers or icons visible
-- Friendly, approachable style
-- Tool or subject clearly shown
-- Light background with accent colors
-- Size: 1280x720 pixels
-
-Tutorial topic: [သင့် tutorial ခေါင်းစဉ်]"""
-        }
-        
-        selected_template = st.selectbox(
-            "Template ရွေးပါ:",
-            list(prompt_templates.keys())
-        )
-        
-        st.text_area(
-            "Prompt (Copy this to Gemini):",
-            prompt_templates[selected_template],
-            height=200,
-            key="thumbnail_prompt"
-        )
-        
-        col_copy1, col_copy2 = st.columns([1, 1])
-        with col_copy1:
-            st.markdown("""
-            <p style='font-size: 0.85rem; opacity: 0.7;'>
-            💡 <b>How to use:</b><br>
-            1. Click "Open Google Gemini" button<br>
-            2. Copy the prompt above<br>
-            3. Paste in Gemini and edit [bracketed] parts<br>
-            4. Generate your thumbnail!
-            </p>
-            """, unsafe_allow_html=True)
-        
-        with col_copy2:
-            st.markdown("""
-            <p style='font-size: 0.85rem; opacity: 0.7;'>
-            ⚡ <b>Tips:</b><br>
-            • Be specific about colors and style<br>
-            • Mention text language (Burmese/English)<br>
-            • Request multiple versions<br>
-            • Ask for variations if needed
-            </p>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        # Alternative AI Tools
-        st.markdown("### 🔗 Other AI Image Tools")
-        col_alt1, col_alt2, col_alt3 = st.columns(3)
-        
-        with col_alt1:
-            st.link_button("🎨 Canva AI", "https://www.canva.com/", use_container_width=True)
-        with col_alt2:
-            st.link_button("🖼️ Leonardo AI", "https://leonardo.ai/", use_container_width=True)
-        with col_alt3:
-            st.link_button("✨ Ideogram", "https://ideogram.ai/", use_container_width=True)
+            with col_opt2:
+                num_images = st.selectbox(
+                    "Number of Images:",
+                    [1, 2, 3, 4],
+                    index=0,
+                    key="thumb_num"
+                )
+            
+            # Style modifiers
+            style_options = st.multiselect(
+                "Style Modifiers:",
+                ["Cinematic", "Dramatic Lighting", "High Contrast", "Vibrant Colors", "Dark Mood", "Professional", "YouTube Style", "4K Quality"],
+                default=["YouTube Style", "High Contrast"],
+                key="thumb_styles"
+            )
+            
+            st.markdown("---")
+            
+            # Model Selection
+            st.markdown("**🤖 Image Generation Model:**")
+            image_model_choice = st.radio(
+                "Model ရွေးပါ:",
+                [
+                    "🚀 Gemini 2.0 Flash (Fast)",
+                    "✨ Gemini 3 Pro (Myanmar Text Support)"
+                ],
+                index=1,
+                key="thumb_model_choice",
+                help="Gemini 3 Pro က မြန်မာဘာသာ caption/text ထည့်ရေးပေးနိုင်တယ်"
+            )
+            
+            # Show model info
+            if "Gemini 3 Pro" in image_model_choice:
+                st.info("💡 Gemini 3 Pro: မြန်မာဘာသာ caption နဲ့ text overlay ထည့်ရေးပေးနိုင်တယ်။ အရည်အသွေးပိုကောင်းတယ်။")
+            else:
+                st.info("⚡ Gemini 2.0 Flash: ပိုမြန်တယ်၊ English text အတွက် သင့်တော်တယ်။")
+            
+            st.markdown("---")
+            
+            # Generate button
+            if st.button("🚀 Generate Thumbnail", use_container_width=True, disabled=st.session_state['thumbnail_generating']):
+                if not api_key:
+                    st.error("⚠️ Please enter API Key first!")
+                elif not user_prompt.strip():
+                    st.warning("⚠️ Please enter a prompt!")
+                else:
+                    st.session_state['thumbnail_generating'] = True
+                    st.session_state['generated_images'] = []
+                    st.rerun()
+            
+            # Reference image upload (optional)
+            st.markdown("---")
+            st.markdown("**🖼️ Reference Image (Optional):**")
+            ref_image = st.file_uploader(
+                "Upload reference image for style guidance",
+                type=["png", "jpg", "jpeg", "webp"],
+                key="thumb_ref_image"
+            )
+            
+            if ref_image:
+                st.image(ref_image, caption="Reference Image", use_container_width=True)
+    
+    with col_thumb_right:
+        with st.container(border=True):
+            st.subheader("🖼️ Generated Images")
+            
+            # Processing
+            if st.session_state['thumbnail_generating']:
+                try:
+                    # Build final prompt
+                    final_prompt = user_prompt.strip()
+                    
+                    # Add text overlay instruction
+                    if add_text:
+                        final_prompt += f", with bold text overlay showing '{add_text}'"
+                    
+                    # Add style modifiers
+                    if style_options:
+                        final_prompt += f", style: {', '.join(style_options)}"
+                    
+                    # Always add quality instruction
+                    final_prompt += ", high quality, detailed, sharp focus"
+                    
+                    with st.spinner(f"🎨 Generating {num_images} image(s)... This may take a moment..."):
+                        
+                        # Select model based on user choice
+                        if "Gemini 3 Pro" in image_model_choice:
+                            selected_image_model = "models/gemini-3-pro-image-preview"
+                            st.info("🎨 Using Gemini 3 Pro (Myanmar Text Support)...")
+                        else:
+                            selected_image_model = "models/gemini-2.0-flash-exp-image-generation"
+                            st.info("⚡ Using Gemini 2.0 Flash (Fast)...")
+                        
+                        # Initialize Gemini Image Model
+                        image_model = genai.GenerativeModel(selected_image_model)
+                        
+                        generated_images = []
+                        
+                        for i in range(num_images):
+                            try:
+                                if num_images > 1:
+                                    st.info(f"🔄 Generating image {i+1}/{num_images}...")
+                                
+                                # Generate with reference image if provided
+                                if ref_image:
+                                    # Read reference image
+                                    ref_img = Image.open(ref_image)
+                                    
+                                    response = image_model.generate_content(
+                                        [
+                                            f"Using this reference image as style guide, {final_prompt}",
+                                            ref_img
+                                        ],
+                                        generation_config=genai.GenerationConfig(
+                                            response_modalities=["image", "text"]
+                                        ),
+                                        request_options={"timeout": 120}
+                                    )
+                                else:
+                                    response = image_model.generate_content(
+                                        final_prompt,
+                                        generation_config=genai.GenerationConfig(
+                                            response_modalities=["image", "text"]
+                                        ),
+                                        request_options={"timeout": 120}
+                                    )
+                                
+                                # Extract image from response
+                                if response.candidates:
+                                    for part in response.candidates[0].content.parts:
+                                        if hasattr(part, 'inline_data') and part.inline_data:
+                                            image_data = part.inline_data.data
+                                            generated_images.append({
+                                                'data': image_data,
+                                                'mime_type': part.inline_data.mime_type,
+                                                'index': i + 1
+                                            })
+                                            break
+                                
+                                # Small delay between generations
+                                if i < num_images - 1:
+                                    time.sleep(1)
+                                    
+                            except Exception as e:
+                                st.warning(f"⚠️ Image {i+1} generation failed: {str(e)[:100]}")
+                                continue
+                        
+                        st.session_state['generated_images'] = generated_images
+                        
+                        if generated_images:
+                            st.success(f"✅ Successfully generated {len(generated_images)} image(s)!")
+                        else:
+                            st.error("❌ No images were generated. Please try a different prompt.")
+                
+                except Exception as e:
+                    st.error(f"❌ Generation Error: {e}")
+                
+                finally:
+                    st.session_state['thumbnail_generating'] = False
+                    st.rerun()
+            
+            # Display generated images
+            if st.session_state['generated_images']:
+                for idx, img_data in enumerate(st.session_state['generated_images']):
+                    st.markdown(f"**Image {img_data['index']}:**")
+                    
+                    # Convert to displayable image
+                    import base64
+                    image_bytes = img_data['data']
+                    
+                    # Display image
+                    st.image(image_bytes, use_container_width=True)
+                    
+                    # Download button
+                    file_ext = "png" if "png" in img_data.get('mime_type', 'png') else "jpg"
+                    st.download_button(
+                        f"📥 Download Image {img_data['index']}",
+                        image_bytes,
+                        file_name=f"thumbnail_{idx+1}.{file_ext}",
+                        mime=img_data.get('mime_type', 'image/png'),
+                        key=f"dl_thumb_{idx}"
+                    )
+                    
+                    st.markdown("---")
+                
+                # Clear button
+                if st.button("🗑️ Clear All Images", use_container_width=True):
+                    st.session_state['generated_images'] = []
+                    st.rerun()
+            
+            else:
+                st.info("💡 Enter a prompt and click 'Generate Thumbnail' to create images.")
+                st.markdown("""
+                **Tips for better results:**
+                - Be specific about colors, style, and composition
+                - Mention "YouTube thumbnail" or "1280x720" for proper sizing
+                - Use style modifiers like "cinematic", "dramatic", "professional"
+                - Add text overlay using the text input field
+                - Upload a reference image for style guidance
+                """)
+                
+                st.markdown("---")
+                st.markdown("**Example Prompts:**")
+                st.code("Create a dramatic movie recap thumbnail with dark cinematic colors, emotional scene, bold title text, professional YouTube style, 1280x720")
+                st.code("Shocked face reaction thumbnail, bright red yellow colors, large bold text, arrow pointing, exaggerated expression, YouTube style")
 
 # ==========================================
 # TAB 4: SCRIPT REWRITER
