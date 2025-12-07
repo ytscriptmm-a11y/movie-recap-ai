@@ -221,9 +221,11 @@ with tab1:
                 elif len(uploaded_videos) > 10:
                     st.error("Maximum 10 files allowed!")
                 else:
+                    # Store uploaded files in session state to prevent loss during rerun
+                    st.session_state['uploaded_video_files'] = uploaded_videos
                     st.session_state['processing_recap'] = True
                     st.session_state['current_file_index'] = 0
-                    st.rerun()
+                    st.session_state['total_files'] = len(uploaded_videos)
 
     with col_right:
         # Initialize session state
@@ -232,9 +234,10 @@ with tab1:
         if 'current_file_index' not in st.session_state:
             st.session_state['current_file_index'] = 0
             
-        if st.session_state.get('processing_recap') and uploaded_videos:
+        if st.session_state.get('processing_recap') and st.session_state.get('uploaded_video_files'):
+            uploaded_videos = st.session_state['uploaded_video_files']
             current_index = st.session_state['current_file_index']
-            total_files = min(len(uploaded_videos), 10)  # Ensure max 10
+            total_files = st.session_state.get('total_files', len(uploaded_videos))
             
             # Overall progress
             st.markdown(f"### 📊 Progress: {current_index}/{total_files} files completed")
@@ -361,8 +364,9 @@ with tab1:
                 
                 # Move to next file
                 st.session_state['current_file_index'] += 1
-                time.sleep(2)  # Brief pause before next file
-                st.rerun()
+                time.sleep(1)  # Brief pause
+                if st.session_state['current_file_index'] < total_files:
+                    st.rerun()  # Only rerun if more files to process
             
             else:
                 # All files processed
@@ -373,6 +377,8 @@ with tab1:
                 if st.button("🔄 Process New Files", use_container_width=True):
                     st.session_state['processing_recap'] = False
                     st.session_state['current_file_index'] = 0
+                    st.session_state['uploaded_video_files'] = None
+                    st.session_state['total_files'] = 0
                     if 'style_text' in st.session_state:
                         del st.session_state['style_text']
                     st.rerun()
