@@ -895,7 +895,10 @@ with tab3:
             )
             
             if ref_image:
-                st.image(ref_image, caption="Reference Image", use_container_width=True)
+                # Show small preview
+                col_img_preview, col_img_space = st.columns([1, 2])
+                with col_img_preview:
+                    st.image(ref_image, caption="Reference", width=150)
             
             st.markdown("---")
             
@@ -957,24 +960,12 @@ with tab3:
             
             st.markdown("---")
             
-            # Model Selection
+            # Model Selection - Only Gemini 3 Pro since it works well
             st.markdown("**🤖 Image Generation Model:**")
-            image_model_choice = st.radio(
-                "Model ရွေးပါ:",
-                [
-                    "✨ Gemini 2.0 Flash Image Gen",
-                    "🎯 Gemini 3 Pro (Myanmar Text Support)"
-                ],
-                index=1,
-                key="thumb_model_choice",
-                help="Gemini 3 Pro က မြန်မာဘာသာ caption/text ထည့်ရေးပေးနိုင်တယ်"
-            )
+            st.success("🎯 Using Gemini 3 Pro - မြန်မာဘာသာ caption နဲ့ text overlay ထည့်ရေးပေးနိုင်တယ်။")
             
-            # Show model info
-            if "Gemini 3 Pro" in image_model_choice:
-                st.info("💡 Gemini 3 Pro: မြန်မာဘာသာ caption နဲ့ text overlay ထည့်ရေးပေးနိုင်တယ်။")
-            else:
-                st.info("⚡ Gemini 2.0 Flash: Fast image generation, English text အတွက် သင့်တော်တယ်။")
+            # Hidden variable for compatibility
+            image_model_choice = "🎯 Gemini 3 Pro (Myanmar Text Support)"
             
             st.markdown("---")
             
@@ -1009,15 +1000,9 @@ with tab3:
                     # Always add quality instruction
                     final_prompt += ", high quality, detailed, sharp focus"
                     
-                    # Select model based on user choice
-                    if "Gemini 3 Pro" in image_model_choice:
-                        selected_image_model = "models/gemini-3-pro-image-preview"
-                        model_name_display = "Gemini 3 Pro"
-                        use_response_modalities = False
-                    else:
-                        selected_image_model = "gemini-2.0-flash-preview-image-generation"
-                        model_name_display = "Gemini 2.0 Flash"
-                        use_response_modalities = False  # Don't use response_modalities for either
+                    # Use Gemini 3 Pro for image generation
+                    selected_image_model = "models/gemini-3-pro-image-preview"
+                    model_name_display = "Gemini 3 Pro"
                     
                     st.info(f"🎨 Using {model_name_display}...")
                     st.markdown(f"**Prompt:** {final_prompt[:200]}...")
@@ -1028,7 +1013,9 @@ with tab3:
                     generated_images = []
                     
                     try:
-                        # Initialize Gemini Image Model
+                        generated_images = []
+                        
+                        # Initialize Gemini 3 Pro Model
                         image_model = genai.GenerativeModel(selected_image_model)
                         
                         for i in range(num_images):
@@ -1036,10 +1023,8 @@ with tab3:
                                 status_text.info(f"🔄 Generating image {i+1}/{num_images}... Please wait...")
                                 progress_bar.progress((i) / num_images)
                                 
-                                # Build the generation prompt
                                 generation_prompt = f"Generate an image: {final_prompt}"
                                 
-                                # Generate image - same approach for both models
                                 if ref_image:
                                     ref_image.seek(0)
                                     ref_img = Image.open(ref_image)
@@ -1069,18 +1054,16 @@ with tab3:
                                             break
                                 
                                 if not image_found:
-                                    # Try to get text response for debugging
                                     text_response = ""
                                     if response.candidates:
                                         for part in response.candidates[0].content.parts:
                                             if hasattr(part, 'text') and part.text:
                                                 text_response = part.text[:200]
                                                 break
-                                    
                                     if text_response:
-                                        status_text.warning(f"⚠️ Image {i+1}: Model returned text instead: {text_response}")
+                                        status_text.warning(f"⚠️ Image {i+1}: {text_response}")
                                     else:
-                                        status_text.warning(f"⚠️ Image {i+1}: No image in response.")
+                                        status_text.warning(f"⚠️ Image {i+1}: No image generated.")
                                 
                                 # Small delay between generations
                                 if i < num_images - 1:
