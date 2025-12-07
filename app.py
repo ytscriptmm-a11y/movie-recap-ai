@@ -218,7 +218,7 @@ with tab1:
                         
                         if gemini_file:
                             st.caption("👀 AI (Flash) is watching...")
-                            vision_model = genai.GenerativeModel("models/gemini-robotics-er-1.5-preview")
+                            vision_model = genai.GenerativeModel("models/gemini-2.5-pro")
                             
                             vision_prompt = """
                             Watch this video carefully. 
@@ -415,4 +415,5 @@ with tab4:
 
 # --- FOOTER ---
 st.markdown("<div style='text-align: center; margin-top: 50px; opacity: 0.5; font-size: 0.8rem;'>Glassmorphism Edition • Powered by Gemini</div>", unsafe_allow_html=True)
+
 
