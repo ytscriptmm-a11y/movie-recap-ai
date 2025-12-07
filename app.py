@@ -8,10 +8,13 @@ import gc
 import io
 from PIL import Image
 import requests
+import subprocess
+import sys
 
 # --- LIBRARY IMPORTS WITH GRACEFUL FALLBACK ---
 PDF_AVAILABLE = True
 DOCX_AVAILABLE = True
+GDOWN_AVAILABLE = True
 
 try:
     import PyPDF2
@@ -23,11 +26,16 @@ try:
 except ImportError:
     DOCX_AVAILABLE = False
 
+try:
+    import gdown
+except ImportError:
+    GDOWN_AVAILABLE = False
+
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
     page_title="Ultimate AI Studio",
     page_icon="✨",
-    layout="wide",  # Changed to wide for maximum width
+    layout="wide",
     initial_sidebar_state="collapsed"
 )
 
@@ -479,88 +487,114 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# --- RETRY DECORATOR FOR API CALLS ---
-def retry_with_backoff(func, max_retries=3, base_delay=2):
-    """Retry function with exponential backoff for rate limiting"""
-    def wrapper(*args, **kwargs):
-        last_exception = None
-        for attempt in range(max_retries):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                last_exception = e
-                error_str = str(e).lower()
-                
-                # Check if it's a rate limit error
-                if 'rate' in error_str or 'quota' in error_str or '429' in error_str:
-                    delay = base_delay * (2 ** attempt)
-                    st.warning(f"⏳ Rate limited. Retrying in {delay}s... (Attempt {attempt + 1}/{max_retries})")
-                    time.sleep(delay)
-                else:
-                    # For other errors, raise immediately
-                    raise e
-        
-        # If all retries failed
-        raise last_exception
-    return wrapper
-
 # --- HELPER FUNCTIONS ---
-def convert_google_drive_link(url):
-    """Convert Google Drive sharing link to direct download link"""
+
+def extract_file_id_from_url(url):
+    """Extract Google Drive file ID from various URL formats"""
     try:
         if 'drive.google.com' in url:
             if '/file/d/' in url:
-                file_id = url.split('/file/d/')[1].split('/')[0]
+                file_id = url.split('/file/d/')[1].split('/')[0].split('?')[0]
+                return file_id
             elif 'id=' in url:
                 file_id = url.split('id=')[1].split('&')[0]
-            else:
-                return None
-            return f"https://drive.google.com/uc?export=download&id={file_id}"
-        return url
+                return file_id
+        return None
     except Exception:
         return None
 
-def download_video_from_url(url, progress_callback=None):
-    """Download video from URL to temp file with progress tracking"""
+def download_video_from_url_gdown(url, progress_placeholder=None):
+    """Download video from Google Drive URL using gdown library (handles large files)"""
     try:
-        download_url = convert_google_drive_link(url)
-        if not download_url:
+        file_id = extract_file_id_from_url(url)
+        if not file_id:
+            return None, "Invalid Google Drive URL format"
+        
+        if progress_placeholder:
+            progress_placeholder.info("📥 Downloading from Google Drive (using gdown)...")
+        
+        # Create temp file
+        tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+        tmp_path = tmp_file.name
+        tmp_file.close()
+        
+        # Use gdown to download
+        gdrive_url = f"https://drive.google.com/uc?id={file_id}"
+        
+        if GDOWN_AVAILABLE:
+            # Use gdown library
+            output = gdown.download(gdrive_url, tmp_path, quiet=False, fuzzy=True)
+            if output is None:
+                return None, "gdown download failed. Check if file is shared publicly."
+        else:
+            # Fallback: try using gdown via command line
+            try:
+                result = subprocess.run(
+                    [sys.executable, "-m", "gdown", gdrive_url, "-O", tmp_path, "--fuzzy"],
+                    capture_output=True,
+                    text=True,
+                    timeout=600
+                )
+                if result.returncode != 0:
+                    return None, f"Download failed: {result.stderr}"
+            except subprocess.TimeoutExpired:
+                return None, "Download timed out (10 minutes)"
+            except FileNotFoundError:
+                return None, "gdown not installed. Add 'gdown' to requirements.txt"
+        
+        # Verify file
+        if not os.path.exists(tmp_path):
+            return None, "Download failed - file not created"
+        
+        file_size = os.path.getsize(tmp_path)
+        if file_size < 1000:
+            # Check if it's HTML error page
+            with open(tmp_path, 'rb') as f:
+                content = f.read(500)
+                if b'<!DOCTYPE' in content or b'<html' in content:
+                    os.remove(tmp_path)
+                    return None, "Google Drive returned error page. Ensure file is shared as 'Anyone with the link'."
+            os.remove(tmp_path)
+            return None, "Downloaded file is too small - likely an error"
+        
+        if progress_placeholder:
+            size_mb = file_size / (1024 * 1024)
+            progress_placeholder.success(f"✅ Downloaded: {size_mb:.1f} MB")
+        
+        return tmp_path, None
+        
+    except Exception as e:
+        return None, f"Download error: {str(e)}"
+
+def download_video_from_url_requests(url, progress_callback=None):
+    """Fallback download using requests (for smaller files)"""
+    try:
+        file_id = extract_file_id_from_url(url)
+        if not file_id:
             return None, "Invalid URL format"
         
-        session = requests.Session()
+        download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
         
-        # First request to get file info and handle confirmation
+        session = requests.Session()
         response = session.get(download_url, stream=True, timeout=60)
         
-        # Handle Google Drive virus scan warning for large files
+        # Handle virus scan warning
         if 'text/html' in response.headers.get('content-type', ''):
-            # Look for confirmation token in cookies or response
             for key, value in response.cookies.items():
                 if key.startswith('download_warning'):
                     params = {'confirm': value}
                     response = session.get(download_url, params=params, stream=True, timeout=300)
                     break
             else:
-                # Try with confirm=t parameter
-                if 'confirm=' not in download_url:
-                    confirm_url = download_url + "&confirm=t"
-                    response = session.get(confirm_url, stream=True, timeout=300)
+                confirm_url = download_url + "&confirm=t"
+                response = session.get(confirm_url, stream=True, timeout=300)
         
         if response.status_code != 200:
             return None, f"Download failed with status {response.status_code}"
         
-        # Get file size if available
         total_size = int(response.headers.get('content-length', 0))
         
-        # Determine file extension
-        file_ext = "mp4"
-        if 'content-disposition' in response.headers:
-            cd = response.headers['content-disposition']
-            if 'filename=' in cd:
-                filename = cd.split('filename=')[-1].strip('"\'')
-                file_ext = filename.split('.')[-1] if '.' in filename else 'mp4'
-        
-        tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}")
+        tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
         
         downloaded = 0
         chunk_size = 8192
@@ -569,46 +603,105 @@ def download_video_from_url(url, progress_callback=None):
             if chunk:
                 tmp_file.write(chunk)
                 downloaded += len(chunk)
-                
                 if progress_callback and total_size > 0:
                     progress_callback(downloaded / total_size)
         
         tmp_file.close()
         
-        # Verify file is not empty or HTML error page
         file_size = os.path.getsize(tmp_file.name)
-        if file_size < 1000:  # Less than 1KB probably means error
+        if file_size < 1000:
             with open(tmp_file.name, 'rb') as f:
-                content_start = f.read(100)
-                if b'<!DOCTYPE' in content_start or b'<html' in content_start:
+                content = f.read(100)
+                if b'<!DOCTYPE' in content or b'<html' in content:
                     os.remove(tmp_file.name)
-                    return None, "Google Drive returned an error page. Please ensure the file is shared publicly."
+                    return None, "Google Drive returned error. File may be too large - use gdown method."
         
         return tmp_file.name, None
         
     except requests.Timeout:
-        return None, "Download timed out. Please try again."
+        return None, "Download timed out"
     except Exception as e:
         return None, str(e)
+
+def download_video_from_url(url, progress_placeholder=None):
+    """Smart download: try gdown first for large files, fallback to requests"""
+    # Always try gdown first as it handles large files better
+    if GDOWN_AVAILABLE:
+        tmp_path, error = download_video_from_url_gdown(url, progress_placeholder)
+        if tmp_path:
+            return tmp_path, None
+        # If gdown fails, try requests as fallback
+        if progress_placeholder:
+            progress_placeholder.warning(f"⚠️ gdown failed: {error}. Trying alternative method...")
+    
+    # Fallback to requests
+    progress_bar = st.progress(0)
+    def update_progress(p):
+        progress_bar.progress(p)
+    
+    tmp_path, error = download_video_from_url_requests(url, update_progress)
+    progress_bar.empty()
+    
+    return tmp_path, error
+
+def save_uploaded_file_chunked(uploaded_file, progress_placeholder=None):
+    """Save large uploaded file in chunks to avoid memory issues"""
+    try:
+        file_ext = uploaded_file.name.split('.')[-1] if '.' in uploaded_file.name else 'mp4'
+        tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}")
+        tmp_path = tmp_file.name
+        
+        # Get file size
+        uploaded_file.seek(0, 2)  # Seek to end
+        file_size = uploaded_file.tell()
+        uploaded_file.seek(0)  # Reset to beginning
+        
+        if progress_placeholder:
+            progress_placeholder.info(f"💾 Saving file ({file_size / (1024*1024):.1f} MB)...")
+        
+        # Write in chunks
+        chunk_size = 10 * 1024 * 1024  # 10MB chunks
+        written = 0
+        
+        progress_bar = st.progress(0)
+        
+        while True:
+            chunk = uploaded_file.read(chunk_size)
+            if not chunk:
+                break
+            tmp_file.write(chunk)
+            written += len(chunk)
+            progress_bar.progress(min(written / file_size, 1.0))
+        
+        tmp_file.close()
+        progress_bar.empty()
+        
+        if progress_placeholder:
+            progress_placeholder.success(f"✅ File saved: {written / (1024*1024):.1f} MB")
+        
+        return tmp_path, None
+        
+    except Exception as e:
+        return None, f"Error saving file: {str(e)}"
 
 def upload_to_gemini(file_path, mime_type=None, progress_placeholder=None):
     """Upload file to Gemini with status updates"""
     try:
         if progress_placeholder:
-            progress_placeholder.info("📤 Uploading to Gemini...")
+            file_size = os.path.getsize(file_path)
+            size_mb = file_size / (1024 * 1024)
+            progress_placeholder.info(f"📤 Uploading to Gemini ({size_mb:.1f} MB)...")
         
         file = genai.upload_file(file_path, mime_type=mime_type)
         
-        # Wait for processing with status updates
         wait_count = 0
         while file.state.name == "PROCESSING":
             wait_count += 1
             if progress_placeholder:
-                progress_placeholder.info(f"⏳ Processing file... ({wait_count * 2}s)")
+                progress_placeholder.info(f"⏳ Gemini processing... ({wait_count * 2}s)")
             time.sleep(2)
             file = genai.get_file(file.name)
             
-            # Timeout after 10 minutes
             if wait_count > 300:
                 return None
         
@@ -625,7 +718,7 @@ def upload_to_gemini(file_path, mime_type=None, progress_placeholder=None):
         return None
 
 def read_file_content(uploaded_file):
-    """Reads content from txt, pdf, or docx files with availability checks"""
+    """Reads content from txt, pdf, or docx files"""
     try:
         file_type = uploaded_file.type
         
@@ -634,7 +727,7 @@ def read_file_content(uploaded_file):
         
         elif file_type == "application/pdf":
             if not PDF_AVAILABLE:
-                st.error("⚠️ PyPDF2 library not installed. Cannot read PDF files.")
+                st.error("⚠️ PyPDF2 not installed. Cannot read PDF files.")
                 return None
             reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.getvalue()))
             text = ""
@@ -646,7 +739,7 @@ def read_file_content(uploaded_file):
         
         elif file_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
             if not DOCX_AVAILABLE:
-                st.error("⚠️ python-docx library not installed. Cannot read DOCX files.")
+                st.error("⚠️ python-docx not installed. Cannot read DOCX files.")
                 return None
             doc = Document(io.BytesIO(uploaded_file.getvalue()))
             text = "\n".join([para.text for para in doc.paragraphs])
@@ -667,7 +760,7 @@ def cleanup_temp_file(file_path):
             pass
 
 def call_gemini_api(model, content, timeout=600):
-    """Call Gemini API with retry logic for rate limiting"""
+    """Call Gemini API with retry logic"""
     max_retries = 3
     base_delay = 5
     
@@ -678,24 +771,22 @@ def call_gemini_api(model, content, timeout=600):
         except Exception as e:
             error_str = str(e).lower()
             
-            # Check if it's a rate limit error
             if 'rate' in error_str or 'quota' in error_str or '429' in error_str or 'resource' in error_str:
                 if attempt < max_retries - 1:
                     delay = base_delay * (2 ** attempt)
-                    st.warning(f"⏳ API rate limited. Waiting {delay}s before retry... (Attempt {attempt + 1}/{max_retries})")
+                    st.warning(f"⏳ Rate limited. Waiting {delay}s... (Attempt {attempt + 1}/{max_retries})")
                     time.sleep(delay)
                 else:
-                    raise Exception(f"Rate limit exceeded after {max_retries} retries. Please wait a few minutes and try again.")
+                    raise Exception(f"Rate limit exceeded after {max_retries} retries.")
             else:
                 raise e
     
     return None
 
 def process_video_from_path(file_path, video_name, writer_model_name, style_text="", custom_prompt="", status_placeholder=None):
-    """Process video from local file path with progress updates"""
+    """Process video from local file path"""
     gemini_file = None
     try:
-        # Step 1: Upload to Gemini
         if status_placeholder:
             status_placeholder.info("📤 Step 1/3: Uploading video to Gemini...")
         
@@ -703,9 +794,8 @@ def process_video_from_path(file_path, video_name, writer_model_name, style_text
         if not gemini_file:
             return None, "Failed to upload to Gemini"
         
-        # Step 2: Vision Analysis
         if status_placeholder:
-            status_placeholder.info("👀 Step 2/3: AI is analyzing video content...")
+            status_placeholder.info("👀 Step 2/3: AI analyzing video...")
         
         vision_model = genai.GenerativeModel("models/gemini-2.5-pro")
         vision_prompt = """
@@ -721,14 +811,12 @@ def process_video_from_path(file_path, video_name, writer_model_name, style_text
         
         video_description = vision_response.text
         
-        # Step 3: Script Writing
         if status_placeholder:
             status_placeholder.info("✍️ Step 3/3: Writing Burmese recap script...")
         
-        # Build custom instructions section
         custom_instructions = ""
         if custom_prompt:
-            custom_instructions = f"\n\n**CUSTOM INSTRUCTIONS FROM USER:**\n{custom_prompt}\n"
+            custom_instructions = f"\n\n**CUSTOM INSTRUCTIONS:**\n{custom_prompt}\n"
         
         writer_model = genai.GenerativeModel(writer_model_name)
         writer_prompt = f"""
@@ -760,7 +848,6 @@ def process_video_from_path(file_path, video_name, writer_model_name, style_text
         return None, str(e)
     
     finally:
-        # Cleanup Gemini file
         if gemini_file:
             try: 
                 genai.delete_file(gemini_file.name)
@@ -769,20 +856,13 @@ def process_video_from_path(file_path, video_name, writer_model_name, style_text
         gc.collect()
 
 def process_video_from_url(url, video_name, writer_model_name, style_text="", custom_prompt="", status_placeholder=None):
-    """Process video from URL with progress updates"""
+    """Process video from URL"""
     tmp_path = None
     try:
         if status_placeholder:
             status_placeholder.info("📥 Downloading from Google Drive...")
         
-        # Create progress bar for download
-        progress_bar = st.progress(0)
-        
-        def update_progress(progress):
-            progress_bar.progress(progress)
-        
-        tmp_path, error = download_video_from_url(url, progress_callback=update_progress)
-        progress_bar.empty()
+        tmp_path, error = download_video_from_url(url, status_placeholder)
         
         if error or not tmp_path:
             return None, error or "Download failed"
@@ -809,13 +889,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- LIBRARY STATUS CHECK ---
-if not PDF_AVAILABLE or not DOCX_AVAILABLE:
-    missing = []
-    if not PDF_AVAILABLE:
-        missing.append("PyPDF2")
-    if not DOCX_AVAILABLE:
-        missing.append("python-docx")
-    st.warning(f"⚠️ Optional libraries missing: {', '.join(missing)}. Add them to requirements.txt for full functionality.")
+missing_libs = []
+if not PDF_AVAILABLE:
+    missing_libs.append("PyPDF2")
+if not DOCX_AVAILABLE:
+    missing_libs.append("python-docx")
+if not GDOWN_AVAILABLE:
+    missing_libs.append("gdown")
+
+if missing_libs:
+    st.warning(f"⚠️ Optional libraries missing: {', '.join(missing_libs)}. Add to requirements.txt for full functionality.")
 
 # --- TOP CONTROL BAR ---
 with st.container(border=True):
@@ -839,19 +922,18 @@ with st.container(border=True):
             label_visibility="collapsed"
         )
     
-    # Configure API
     if api_key:
         try:
             genai.configure(api_key=api_key)
         except Exception:
             pass
 
-# --- TABS NAVIGATION ---
+# --- TABS ---
 st.write("") 
 tab1, tab2, tab3, tab4 = st.tabs(["🎬 Movie Recap", "🌍 Translator", "🎨 Thumbnail AI", "✍️ Script Rewriter"])
 
 # ==========================================
-# TAB 1: MOVIE RECAP - DUAL INPUT METHOD
+# TAB 1: MOVIE RECAP
 # ==========================================
 with tab1:
     st.write("")
@@ -861,7 +943,6 @@ with tab1:
         with st.container(border=True):
             st.subheader("📂 Add Videos to Queue")
             
-            # Method Toggle
             upload_method = st.radio(
                 "Choose Input Method:",
                 ["📁 Upload Files (Local)", "🔗 Google Drive Links"],
@@ -870,9 +951,16 @@ with tab1:
             
             st.markdown("---")
             
-            # METHOD 1: FILE UPLOAD
             if upload_method == "📁 Upload Files (Local)":
-                st.info("📌 Upload up to 10 videos • Drag & drop or click to browse")
+                st.info("📌 Upload videos • Large files supported (chunked upload)")
+                
+                # Warning for large files
+                st.markdown("""
+                <small style='opacity: 0.7;'>
+                💡 <b>Large File Tip:</b> For files >500MB, consider using Google Drive links for better reliability.
+                </small>
+                """, unsafe_allow_html=True)
+                
                 uploaded_videos = st.file_uploader(
                     "Select Video Files",
                     type=["mp4", "mkv", "mov"],
@@ -884,7 +972,6 @@ with tab1:
                     if not uploaded_videos:
                         st.warning("Please select video files!")
                     else:
-                        # Limit to 10 total items in queue
                         available_slots = 10 - len(st.session_state['video_queue'])
                         if available_slots <= 0:
                             st.error("Queue is full! Maximum 10 videos.")
@@ -894,36 +981,41 @@ with tab1:
                             
                             for video in files_to_add:
                                 try:
-                                    # Save to temp file immediately
-                                    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f".{video.name.split('.')[-1]}")
-                                    tmp_file.write(video.getvalue())
-                                    tmp_file.close()
+                                    status_msg = st.empty()
+                                    status_msg.info(f"💾 Saving {video.name}...")
+                                    
+                                    # Use chunked save for large files
+                                    tmp_path, error = save_uploaded_file_chunked(video, status_msg)
+                                    
+                                    if error:
+                                        st.error(f"Failed to save {video.name}: {error}")
+                                        continue
                                     
                                     st.session_state['video_queue'].append({
                                         'name': video.name,
                                         'source_type': 'file',
-                                        'file_path': tmp_file.name,
+                                        'file_path': tmp_path,
                                         'url': None,
                                         'status': 'waiting',
                                         'script': None,
                                         'error': None
                                     })
                                     added_count += 1
+                                    status_msg.empty()
+                                    
                                 except Exception as e:
                                     st.error(f"Failed to add {video.name}: {e}")
                             
                             if added_count > 0:
                                 st.success(f"✅ Added {added_count} file(s) to queue!")
-                            if len(uploaded_videos) > available_slots:
-                                st.warning(f"⚠️ Only added {available_slots} files. Queue limit is 10.")
                             st.rerun()
             
-            # METHOD 2: GOOGLE DRIVE LINKS
             else:
-                st.info("📌 Paste Google Drive links (Max 10) • One link per line")
+                st.info("📌 Paste Google Drive links (Max 10) • Supports large files (1GB+)")
                 st.markdown("""
                 <small style='opacity: 0.7;'>
-                💡 <b>Tip:</b> Make sure files are shared as "Anyone with link can view"
+                💡 <b>Tip:</b> Make sure files are shared as "Anyone with link can view"<br>
+                🚀 <b>Large files:</b> Uses gdown library for reliable downloads
                 </small>
                 """, unsafe_allow_html=True)
                 
@@ -948,9 +1040,13 @@ with tab1:
                             valid_count = 0
                             
                             for idx, link in enumerate(links_to_add):
-                                # Validate link format
                                 if 'drive.google.com' not in link:
                                     st.warning(f"⚠️ Skipping invalid link: {link[:50]}...")
+                                    continue
+                                
+                                file_id = extract_file_id_from_url(link)
+                                if not file_id:
+                                    st.warning(f"⚠️ Could not extract file ID from: {link[:50]}...")
                                     continue
                                 
                                 st.session_state['video_queue'].append({
@@ -966,40 +1062,34 @@ with tab1:
                             
                             if valid_count > 0:
                                 st.success(f"✅ Added {valid_count} link(s) to queue!")
-                            if len(raw_links) > available_slots:
-                                st.warning(f"⚠️ Only added {available_slots} links. Queue limit is 10.")
                             st.rerun()
             
             st.markdown("---")
             st.markdown("**⚙️ Settings**")
             
-            # Custom Prompt Input
             with st.expander("📝 Custom Instructions (Optional)", expanded=False):
                 custom_prompt = st.text_area(
                     "Add your custom instructions here:",
                     value=st.session_state.get('custom_prompt', ''),
                     height=100,
-                    placeholder="Example: Focus on romantic scenes, Include character names, Make it more dramatic...",
+                    placeholder="Example: Focus on romantic scenes, Include character names...",
                     key="custom_prompt_input"
                 )
                 if custom_prompt:
                     st.session_state['custom_prompt'] = custom_prompt
-                    st.caption("✅ Custom instructions will be added to the AI prompt")
+                    st.caption("✅ Custom instructions will be added")
             
-            # Style File Upload
             style_file = st.file_uploader("📄 Writing Style Reference (Optional)", type=["txt", "pdf", "docx"], key="style_uploader")
             
-            # Read style file
             if style_file:
                 extracted_style = read_file_content(style_file)
                 if extracted_style:
-                    style_text = f"\n\n**WRITING STYLE REFERENCE:**\nPlease mimic the tone and style of the following text:\n---\n{extracted_style[:5000]}\n---\n"
+                    style_text = f"\n\n**WRITING STYLE REFERENCE:**\n{extracted_style[:5000]}\n"
                     st.session_state['style_text'] = style_text
                     st.caption(f"✅ Style loaded: {style_file.name}")
             
             st.markdown("---")
             
-            # Control Buttons
             col_start, col_clear = st.columns(2)
             
             with col_start:
@@ -1014,7 +1104,6 @@ with tab1:
             
             with col_clear:
                 if st.button("🗑️ Clear Queue", use_container_width=True, disabled=len(st.session_state['video_queue']) == 0):
-                    # Clean up temp files
                     for item in st.session_state['video_queue']:
                         cleanup_temp_file(item.get('file_path'))
                     
@@ -1034,19 +1123,16 @@ with tab1:
                 **Two Ways to Add Videos:**
                 
                 **Method 1: Upload Files** 📁
-                - Click "Upload Files" tab
                 - Drag & drop or browse for video files
-                - Best for small files (<200MB)
+                - Supports large files with chunked upload
                 
-                **Method 2: Google Drive Links** 🔗
-                - Click "Google Drive Links" tab
+                **Method 2: Google Drive Links** 🔗 (Recommended for large files)
                 - Upload videos to Google Drive first
                 - Share → "Anyone with link can view"
                 - Copy links and paste here
-                - Best for large files
+                - Uses gdown for reliable large file downloads
                 """)
             else:
-                # Show queue status
                 total = len(st.session_state['video_queue'])
                 completed = sum(1 for v in st.session_state['video_queue'] if v['status'] == 'completed')
                 failed = sum(1 for v in st.session_state['video_queue'] if v['status'] == 'failed')
@@ -1066,7 +1152,6 @@ with tab1:
                 
                 st.markdown("---")
                 
-                # Display queue items
                 for idx, item in enumerate(st.session_state['video_queue']):
                     status_emoji = {
                         'waiting': '⏳',
@@ -1085,7 +1170,6 @@ with tab1:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Show download button for completed items
                     if item['status'] == 'completed' and item['script']:
                         filename = f"{item['name'].rsplit('.', 1)[0]}_recap.txt"
                         st.download_button(
@@ -1095,11 +1179,9 @@ with tab1:
                             key=f"download_{idx}"
                         )
                     
-                    # Show error for failed items
                     if item['status'] == 'failed' and item['error']:
                         st.error(f"Error: {item['error'][:200]}")
         
-        # Process queue
         if st.session_state['processing_active']:
             current_idx = st.session_state['current_index']
             
@@ -1116,7 +1198,6 @@ with tab1:
                         style_text = st.session_state.get('style_text', "")
                         custom_prompt = st.session_state.get('custom_prompt', "")
                         
-                        # Process based on source type
                         if current_item['source_type'] == 'file':
                             script, error = process_video_from_path(
                                 current_item['file_path'],
@@ -1126,11 +1207,9 @@ with tab1:
                                 custom_prompt,
                                 status_placeholder
                             )
-                            
-                            # Clean up temp file after processing
                             cleanup_temp_file(current_item['file_path'])
                         
-                        else:  # URL
+                        else:
                             script, error = process_video_from_url(
                                 current_item['url'],
                                 current_item['name'],
@@ -1170,7 +1249,7 @@ with tab1:
                 st.session_state['processing_active'] = False
 
 # ==========================================
-# TAB 2: UNIVERSAL TRANSLATOR
+# TAB 2: TRANSLATOR
 # ==========================================
 with tab2:
     st.write("")
@@ -1204,23 +1283,22 @@ with tab2:
                                 st.download_button("📥 Download", res.text, file_name=f"trans_{uploaded_file.name}")
                     else:
                         with st.spinner("🎧 Listening & Translating..."):
-                            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}") as tmp:
-                                tmp.write(uploaded_file.getvalue())
-                                tmp_path = tmp.name
-                            
-                            gemini_file = upload_to_gemini(tmp_path)
-                            if gemini_file:
-                                model = genai.GenerativeModel(writer_model_name)
-                                res = call_gemini_api(model, [gemini_file, "Generate full transcript in **Burmese**."], timeout=600)
-                                if res:
-                                    st.text_area("Transcript", res.text, height=300)
-                                    st.download_button("📥 Download", res.text, file_name=f"{uploaded_file.name}_trans.txt")
-                                try: 
-                                    genai.delete_file(gemini_file.name)
-                                except Exception: 
-                                    pass
-                            
-                            cleanup_temp_file(tmp_path)
+                            tmp_path, error = save_uploaded_file_chunked(uploaded_file)
+                            if error:
+                                st.error(f"Error: {error}")
+                            else:
+                                gemini_file = upload_to_gemini(tmp_path)
+                                if gemini_file:
+                                    model = genai.GenerativeModel(writer_model_name)
+                                    res = call_gemini_api(model, [gemini_file, "Generate full transcript in **Burmese**."], timeout=600)
+                                    if res:
+                                        st.text_area("Transcript", res.text, height=300)
+                                        st.download_button("📥 Download", res.text, file_name=f"{uploaded_file.name}_trans.txt")
+                                    try: 
+                                        genai.delete_file(gemini_file.name)
+                                    except: 
+                                        pass
+                                cleanup_temp_file(tmp_path)
                             gc.collect()
                             
                 except Exception as e: 
@@ -1231,41 +1309,35 @@ with tab2:
                 st.info("💡 Upload a file and click 'Translate Now' to start.")
 
 # ==========================================
-# TAB 3: AI THUMBNAIL STUDIO (GEMINI API)
+# TAB 3: THUMBNAIL AI
 # ==========================================
 with tab3:
     st.write("")
     
-    # Initialize thumbnail session states
     if 'generated_images' not in st.session_state:
         st.session_state['generated_images'] = []
-    if 'thumb_prompt_to_generate' not in st.session_state:
-        st.session_state['thumb_prompt_to_generate'] = None
     
     col_thumb_left, col_thumb_right = st.columns([1, 1], gap="medium")
     
     with col_thumb_left:
         with st.container(border=True):
             st.subheader("🎨 AI Thumbnail Generator")
-            st.markdown("<p style='opacity: 0.7;'>Gemini API နဲ့ တိုက်ရိုက် Image Generate လုပ်ပါ</p>", unsafe_allow_html=True)
+            st.markdown("<p style='opacity: 0.7;'>Gemini API နဲ့ Image Generate လုပ်ပါ</p>", unsafe_allow_html=True)
             
-            # Reference image upload (MOVED TO TOP)
             st.markdown("**🖼️ Reference Image (Optional):**")
             ref_image = st.file_uploader(
-                "Upload reference image for style guidance",
+                "Upload reference image",
                 type=["png", "jpg", "jpeg", "webp"],
                 key="thumb_ref_image"
             )
             
             if ref_image:
-                # Show small preview
-                col_img_preview, col_img_space = st.columns([1, 2])
+                col_img_preview, _ = st.columns([1, 2])
                 with col_img_preview:
                     st.image(ref_image, caption="Reference", width=150)
             
             st.markdown("---")
             
-            # Prompt Templates
             st.markdown("**📝 Quick Templates:**")
             prompt_templates = {
                 "✍️ Custom Prompt": "",
@@ -1273,9 +1345,6 @@ with tab3:
                 "😱 Shocking/Dramatic Style": "Create a YouTube thumbnail with shocked surprised expression style, bright red and yellow accent colors, large bold text with outline, arrow pointing to key element, exaggerated expressions, 1280x720 pixels",
                 "🎭 Before/After Comparison": "Create a before and after comparison YouTube thumbnail, split screen design with clear dividing line, contrasting colors for each side, bold BEFORE and AFTER labels, 1280x720 pixels",
                 "🔥 Top 10 List Style": "Create a Top 10 list style YouTube thumbnail, large number prominently displayed, grid collage of related images, bright energetic colors, bold sans-serif title, 1280x720 pixels",
-                "💡 Tutorial/How-To": "Create a tutorial how-to YouTube thumbnail, clean professional look, step numbers visible, friendly approachable style, light background with accent colors, 1280x720 pixels",
-                "🌄 Cinematic Landscape": "Create a cinematic landscape thumbnail with dramatic lighting, golden hour colors, epic wide shot composition, movie poster style, 1280x720 pixels",
-                "👤 Portrait Style": "Create a professional portrait style thumbnail with soft lighting, blurred background bokeh effect, centered subject, warm color tones, 1280x720 pixels"
             }
             
             selected_template = st.selectbox(
@@ -1284,24 +1353,22 @@ with tab3:
                 key="thumb_template"
             )
             
-            # Main prompt input
             default_prompt = prompt_templates[selected_template]
             user_prompt = st.text_area(
                 "🖼️ Image Prompt:",
                 value=default_prompt,
                 height=150,
-                placeholder="Describe the thumbnail you want to generate...\nExample: Create a dramatic movie recap thumbnail with dark cinematic colors, showing an emotional scene...",
+                placeholder="Describe the thumbnail you want to generate...",
                 key="thumb_prompt_input"
             )
             
-            # Additional customization
             st.markdown("**⚙️ Customization:**")
             col_opt1, col_opt2 = st.columns(2)
             
             with col_opt1:
                 add_text = st.text_input(
-                    "Text on Image (Optional):",
-                    placeholder="e.g., EP.1, PART 2, မြန်မာစာ",
+                    "Text on Image:",
+                    placeholder="e.g., EP.1, PART 2",
                     key="thumb_text"
                 )
             
@@ -1313,7 +1380,6 @@ with tab3:
                     key="thumb_num"
                 )
             
-            # Style modifiers
             style_options = st.multiselect(
                 "Style Modifiers:",
                 ["Cinematic", "Dramatic Lighting", "High Contrast", "Vibrant Colors", "Dark Mood", "Professional", "YouTube Style", "4K Quality"],
@@ -1322,52 +1388,30 @@ with tab3:
             )
             
             st.markdown("---")
+            st.success("🎯 Using Gemini 3 Pro - မြန်မာဘာသာ caption ထည့်ရေးပေးနိုင်တယ်။")
             
-            # Model Selection - Only Gemini 3 Pro since it works well
-            st.markdown("**🤖 Image Generation Model:**")
-            st.success("🎯 Using Gemini 3 Pro - မြန်မာဘာသာ caption နဲ့ text overlay ထည့်ရေးပေးနိုင်တယ်။")
-            
-            # Hidden variable for compatibility
-            image_model_choice = "🎯 Gemini 3 Pro (Myanmar Text Support)"
-            
-            st.markdown("---")
-            
-            # Generate button
             generate_clicked = st.button("🚀 Generate Thumbnail", use_container_width=True)
     
     with col_thumb_right:
         with st.container(border=True):
             st.subheader("🖼️ Generated Images")
             
-            # Process generation when button is clicked
             if generate_clicked:
                 if not api_key:
                     st.error("⚠️ Please enter API Key first!")
                 elif not user_prompt.strip():
                     st.warning("⚠️ Please enter a prompt!")
                 else:
-                    # Clear previous images
                     st.session_state['generated_images'] = []
                     
-                    # Build final prompt
                     final_prompt = user_prompt.strip()
-                    
-                    # Add text overlay instruction
                     if add_text:
                         final_prompt += f", with bold text overlay showing '{add_text}'"
-                    
-                    # Add style modifiers
                     if style_options:
                         final_prompt += f", style: {', '.join(style_options)}"
-                    
-                    # Always add quality instruction
                     final_prompt += ", high quality, detailed, sharp focus"
                     
-                    # Use Gemini 3 Pro for image generation
-                    selected_image_model = "models/gemini-3-pro-image-preview"
-                    model_name_display = "Gemini 3 Pro"
-                    
-                    st.info(f"🎨 Using {model_name_display}...")
+                    st.info("🎨 Using Gemini 3 Pro...")
                     st.markdown(f"**Prompt:** {final_prompt[:200]}...")
                     
                     progress_bar = st.progress(0)
@@ -1376,14 +1420,11 @@ with tab3:
                     generated_images = []
                     
                     try:
-                        generated_images = []
-                        
-                        # Initialize Gemini 3 Pro Model
-                        image_model = genai.GenerativeModel(selected_image_model)
+                        image_model = genai.GenerativeModel("models/gemini-3-pro-image-preview")
                         
                         for i in range(num_images):
                             try:
-                                status_text.info(f"🔄 Generating image {i+1}/{num_images}... Please wait...")
+                                status_text.info(f"🔄 Generating image {i+1}/{num_images}...")
                                 progress_bar.progress((i) / num_images)
                                 
                                 generation_prompt = f"Generate an image: {final_prompt}"
@@ -1401,14 +1442,12 @@ with tab3:
                                         request_options={"timeout": 180}
                                     )
                                 
-                                # Extract image from response
                                 image_found = False
                                 if response.candidates:
                                     for part in response.candidates[0].content.parts:
                                         if hasattr(part, 'inline_data') and part.inline_data:
-                                            image_data = part.inline_data.data
                                             generated_images.append({
-                                                'data': image_data,
+                                                'data': part.inline_data.data,
                                                 'mime_type': part.inline_data.mime_type,
                                                 'index': i + 1
                                             })
@@ -1417,84 +1456,48 @@ with tab3:
                                             break
                                 
                                 if not image_found:
-                                    text_response = ""
-                                    if response.candidates:
-                                        for part in response.candidates[0].content.parts:
-                                            if hasattr(part, 'text') and part.text:
-                                                text_response = part.text[:200]
-                                                break
-                                    if text_response:
-                                        status_text.warning(f"⚠️ Image {i+1}: {text_response}")
-                                    else:
-                                        status_text.warning(f"⚠️ Image {i+1}: No image generated.")
+                                    status_text.warning(f"⚠️ Image {i+1}: No image generated.")
                                 
-                                # Small delay between generations
                                 if i < num_images - 1:
                                     time.sleep(2)
                                     
                             except Exception as e:
-                                error_msg = str(e)
-                                status_text.error(f"⚠️ Image {i+1} failed: {error_msg[:150]}")
-                                st.error(f"Full error: {error_msg}")
+                                status_text.error(f"⚠️ Image {i+1} failed: {str(e)[:150]}")
                                 continue
                         
                         progress_bar.progress(1.0)
-                        
-                        # Save to session state
                         st.session_state['generated_images'] = generated_images
                         
                         if generated_images:
                             status_text.success(f"🎉 Done! Generated {len(generated_images)}/{num_images} image(s)")
                         else:
-                            status_text.error("❌ No images were generated. Try a different prompt or check your API key.")
+                            status_text.error("❌ No images were generated.")
                     
                     except Exception as e:
                         st.error(f"❌ Generation Error: {e}")
-                        progress_bar.empty()
             
-            # Display generated images
             if st.session_state['generated_images']:
                 st.markdown("---")
                 for idx, img_data in enumerate(st.session_state['generated_images']):
                     st.markdown(f"**Image {img_data['index']}:**")
+                    st.image(img_data['data'], use_container_width=True)
                     
-                    image_bytes = img_data['data']
-                    
-                    # Display image
-                    st.image(image_bytes, use_container_width=True)
-                    
-                    # Download button
                     file_ext = "png" if "png" in img_data.get('mime_type', 'png') else "jpg"
                     st.download_button(
                         f"📥 Download Image {img_data['index']}",
-                        image_bytes,
+                        img_data['data'],
                         file_name=f"thumbnail_{idx+1}.{file_ext}",
                         mime=img_data.get('mime_type', 'image/png'),
                         key=f"dl_thumb_{idx}_{time.time()}"
                     )
-                    
                     st.markdown("---")
                 
-                # Clear button
                 if st.button("🗑️ Clear All Images", use_container_width=True, key="clear_thumb"):
                     st.session_state['generated_images'] = []
                     st.rerun()
             
             elif not generate_clicked:
                 st.info("💡 Enter a prompt and click 'Generate Thumbnail' to create images.")
-                st.markdown("""
-                **Tips for better results:**
-                - Be specific about colors, style, and composition
-                - Mention "YouTube thumbnail" or "1280x720" for proper sizing
-                - Use style modifiers like "cinematic", "dramatic", "professional"
-                - Add text overlay using the text input field (မြန်မာစာ supported with Gemini 3 Pro)
-                - Upload a reference image for style guidance
-                """)
-                
-                st.markdown("---")
-                st.markdown("**Example Prompts:**")
-                st.code("Create a dramatic movie recap thumbnail with dark cinematic colors, emotional scene, bold title text, professional YouTube style, 1280x720")
-                st.code("Shocked face reaction thumbnail, bright red yellow colors, large bold text, arrow pointing, exaggerated expression, YouTube style")
 
 # ==========================================
 # TAB 4: SCRIPT REWRITER
@@ -1532,25 +1535,22 @@ with tab4:
                             if extracted_text:
                                 style_content_rewrite = extracted_text
                                 st.success(f"✅ Loaded style from {rewrite_style_file.name}")
-                            else:
-                                st.warning("Could not read style file. Using default.")
 
-                    with st.spinner("🤖 Rewriting... (Keeping 100% Content, Changing Style)"):
+                    with st.spinner("🤖 Rewriting..."):
                         rewrite_model = genai.GenerativeModel(writer_model_name)
                         
                         rewrite_prompt = f"""
-                        You are an expert Script Editor and Ghostwriter.
+                        You are an expert Script Editor.
                         
-                        **YOUR TASK:**
-                        Rewrite the following "ORIGINAL SCRIPT" using the "TARGET WRITING STYLE".
+                        **TASK:** Rewrite the ORIGINAL SCRIPT using the TARGET WRITING STYLE.
                         
-                        **CRITICAL RULES (MUST FOLLOW):**
-                        1. **NO SUMMARIZATION:** You must NOT summarize. Every single scene, dialogue, and detail from the original script must be present.
-                        2. **100% CONTENT PRESERVATION:** Do not remove any information. Just change the *way* it is written (word choice, sentence structure, flow).
-                        3. **MATCH STYLE:** Strictly mimic the tone, vocabulary, and rhythm of the provided style sample.
-                        4. **OUTPUT LANGUAGE:** Burmese (Myanmar).
+                        **RULES:**
+                        1. NO SUMMARIZATION - keep all details
+                        2. 100% CONTENT PRESERVATION
+                        3. MATCH STYLE strictly
+                        4. OUTPUT: Burmese (Myanmar)
                         
-                        **TARGET WRITING STYLE REFERENCE:**
+                        **TARGET STYLE:**
                         {style_content_rewrite[:5000]} 
                         
                         **ORIGINAL SCRIPT:**
@@ -1562,9 +1562,9 @@ with tab4:
                         if rewrite_response:
                             st.success("✅ Rewrite Complete!")
                             st.text_area("Result", rewrite_response.text, height=500)
-                            st.download_button("📥 Download Rewritten Script", rewrite_response.text, file_name="rewritten_script.txt")
+                            st.download_button("📥 Download", rewrite_response.text, file_name="rewritten_script.txt")
                         else:
-                            st.error("❌ Rewrite failed. Please try again.")
+                            st.error("❌ Rewrite failed.")
                         
                 except Exception as e:
                     st.error(f"Error: {e}")
@@ -1572,7 +1572,7 @@ with tab4:
                 st.session_state['run_rewrite'] = False
         else:
             with st.container(border=True):
-                st.info("💡 Paste a script and upload a style (PDF/Docx/Txt) to rewrite.")
+                st.info("💡 Paste a script and upload a style to rewrite.")
 
 # --- FOOTER ---
 st.markdown("""
@@ -1582,5 +1582,3 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
-
-
