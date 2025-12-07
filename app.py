@@ -27,7 +27,7 @@ except ImportError:
 st.set_page_config(
     page_title="Ultimate AI Studio",
     page_icon="✨",
-    layout="centered",  # Changed from wide to centered for narrower layout
+    layout="wide",  # Changed to wide for maximum width
     initial_sidebar_state="collapsed"
 )
 
@@ -50,17 +50,98 @@ def init_session_state():
 
 init_session_state()
 
-# --- PROFESSIONAL DARK THEME CSS ---
+# --- MATRIX RAIN BACKGROUND CSS ---
 st.markdown("""
 <style>
     /* Import Google Font */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
     
-    /* Main App Background */
+    /* Matrix Rain Container */
+    .matrix-bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        overflow: hidden;
+        background: linear-gradient(180deg, #0a0a0f 0%, #0d1117 50%, #0a0f0a 100%);
+    }
+    
+    /* Matrix Rain Columns - CSS Only Animation */
+    .matrix-column {
+        position: absolute;
+        top: -100%;
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 14px;
+        line-height: 1.2;
+        color: #0f0;
+        text-shadow: 0 0 8px #0f0, 0 0 20px #0f0;
+        animation: matrix-fall linear infinite;
+        opacity: 0.7;
+        white-space: nowrap;
+        writing-mode: vertical-rl;
+        text-orientation: upright;
+    }
+    
+    @keyframes matrix-fall {
+        0% {
+            transform: translateY(-100%);
+            opacity: 1;
+        }
+        75% {
+            opacity: 0.7;
+        }
+        100% {
+            transform: translateY(200vh);
+            opacity: 0;
+        }
+    }
+    
+    /* Generate multiple columns with different positions and speeds */
+    .matrix-column:nth-child(1) { left: 2%; animation-duration: 8s; animation-delay: 0s; font-size: 12px; }
+    .matrix-column:nth-child(2) { left: 6%; animation-duration: 12s; animation-delay: 1s; font-size: 10px; opacity: 0.5; }
+    .matrix-column:nth-child(3) { left: 10%; animation-duration: 9s; animation-delay: 2s; font-size: 14px; }
+    .matrix-column:nth-child(4) { left: 14%; animation-duration: 15s; animation-delay: 0.5s; font-size: 11px; opacity: 0.4; }
+    .matrix-column:nth-child(5) { left: 18%; animation-duration: 10s; animation-delay: 3s; font-size: 13px; }
+    .matrix-column:nth-child(6) { left: 22%; animation-duration: 11s; animation-delay: 1.5s; font-size: 10px; opacity: 0.6; }
+    .matrix-column:nth-child(7) { left: 26%; animation-duration: 14s; animation-delay: 2.5s; font-size: 12px; }
+    .matrix-column:nth-child(8) { left: 30%; animation-duration: 8s; animation-delay: 0.8s; font-size: 15px; opacity: 0.5; }
+    .matrix-column:nth-child(9) { left: 34%; animation-duration: 13s; animation-delay: 4s; font-size: 11px; }
+    .matrix-column:nth-child(10) { left: 38%; animation-duration: 9s; animation-delay: 1.2s; font-size: 13px; opacity: 0.4; }
+    .matrix-column:nth-child(11) { left: 42%; animation-duration: 16s; animation-delay: 3.5s; font-size: 10px; }
+    .matrix-column:nth-child(12) { left: 46%; animation-duration: 10s; animation-delay: 0.3s; font-size: 14px; opacity: 0.6; }
+    .matrix-column:nth-child(13) { left: 50%; animation-duration: 12s; animation-delay: 2.8s; font-size: 12px; }
+    .matrix-column:nth-child(14) { left: 54%; animation-duration: 8s; animation-delay: 1.8s; font-size: 11px; opacity: 0.5; }
+    .matrix-column:nth-child(15) { left: 58%; animation-duration: 14s; animation-delay: 4.5s; font-size: 13px; }
+    .matrix-column:nth-child(16) { left: 62%; animation-duration: 11s; animation-delay: 0.6s; font-size: 10px; opacity: 0.4; }
+    .matrix-column:nth-child(17) { left: 66%; animation-duration: 9s; animation-delay: 3.2s; font-size: 15px; }
+    .matrix-column:nth-child(18) { left: 70%; animation-duration: 15s; animation-delay: 2.2s; font-size: 12px; opacity: 0.6; }
+    .matrix-column:nth-child(19) { left: 74%; animation-duration: 10s; animation-delay: 1.4s; font-size: 11px; }
+    .matrix-column:nth-child(20) { left: 78%; animation-duration: 13s; animation-delay: 5s; font-size: 14px; opacity: 0.5; }
+    .matrix-column:nth-child(21) { left: 82%; animation-duration: 8s; animation-delay: 0.9s; font-size: 10px; }
+    .matrix-column:nth-child(22) { left: 86%; animation-duration: 12s; animation-delay: 3.8s; font-size: 13px; opacity: 0.4; }
+    .matrix-column:nth-child(23) { left: 90%; animation-duration: 11s; animation-delay: 2.6s; font-size: 12px; }
+    .matrix-column:nth-child(24) { left: 94%; animation-duration: 9s; animation-delay: 1.1s; font-size: 11px; opacity: 0.6; }
+    .matrix-column:nth-child(25) { left: 98%; animation-duration: 14s; animation-delay: 4.2s; font-size: 10px; }
+    
+    /* Main App Background - Transparent to show matrix */
     .stApp {
-        background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
-        background-attachment: fixed;
+        background: transparent !important;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    /* Add semi-transparent overlay for readability */
+    .stApp::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(10, 15, 20, 0.85);
+        z-index: -1;
+        pointer-events: none;
     }
     
     /* Hide Streamlit Header */
@@ -68,89 +149,101 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Main Container - Wider */
+    /* Main Container - Max Width 2000px */
     .main .block-container {
-        max-width: 1500px !important;
-        padding: 2rem 1rem !important;
+        max-width: 2000px !important;
+        padding: 2rem 2rem !important;
     }
     
-    /* Card Styling - More visible borders */
+    /* Card Styling - Glassmorphism with green tint */
     div[data-testid="stVerticalBlockBorderWrapper"] > div {
-        background: linear-gradient(145deg, rgba(30, 30, 50, 0.95), rgba(20, 20, 35, 0.98)) !important;
+        background: linear-gradient(145deg, rgba(0, 40, 20, 0.85), rgba(10, 30, 15, 0.9)) !important;
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
-        border: 2px solid rgba(139, 92, 246, 0.3) !important;
+        border: 2px solid rgba(0, 255, 100, 0.25) !important;
         border-radius: 16px !important;
-        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(139, 92, 246, 0.1);
+        box-shadow: 0 4px 24px rgba(0, 255, 100, 0.15), 0 0 0 1px rgba(0, 255, 100, 0.1), inset 0 1px 0 rgba(0, 255, 100, 0.1);
         padding: 1.5rem;
     }
     
-    /* Input Fields - More visible borders */
+    /* Input Fields - Matrix themed */
     .stTextInput input, .stTextArea textarea {
-        background: rgba(255, 255, 255, 0.05) !important;
-        color: #ffffff !important;
-        border: 2px solid rgba(139, 92, 246, 0.3) !important;
+        background: rgba(0, 20, 10, 0.7) !important;
+        color: #00ff66 !important;
+        border: 2px solid rgba(0, 255, 100, 0.3) !important;
         border-radius: 10px !important;
         padding: 12px 16px !important;
         font-size: 14px !important;
+        font-family: 'Share Tech Mono', monospace !important;
         transition: all 0.3s ease;
     }
     
     .stTextInput input:focus, .stTextArea textarea:focus {
-        border-color: rgba(139, 92, 246, 0.7) !important;
-        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15) !important;
+        border-color: rgba(0, 255, 100, 0.7) !important;
+        box-shadow: 0 0 0 3px rgba(0, 255, 100, 0.15), 0 0 20px rgba(0, 255, 100, 0.2) !important;
     }
     
-    /* Select Box - More visible border */
+    .stTextInput input::placeholder, .stTextArea textarea::placeholder {
+        color: rgba(0, 255, 100, 0.4) !important;
+    }
+    
+    /* Select Box - Matrix themed */
     .stSelectbox div[data-baseweb="select"] > div {
-        background: rgba(255, 255, 255, 0.05) !important;
-        border: 2px solid rgba(139, 92, 246, 0.3) !important;
+        background: rgba(0, 20, 10, 0.7) !important;
+        border: 2px solid rgba(0, 255, 100, 0.3) !important;
         border-radius: 10px !important;
-        color: white !important;
+        color: #00ff66 !important;
     }
     
     .stSelectbox div[data-baseweb="select"] > div:hover {
-        border-color: rgba(139, 92, 246, 0.5) !important;
+        border-color: rgba(0, 255, 100, 0.5) !important;
     }
     
-    /* Buttons */
+    /* Buttons - Matrix glow effect */
     .stButton > button {
-        background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);
-        color: white;
+        background: linear-gradient(135deg, rgba(0, 200, 80, 0.9) 0%, rgba(0, 150, 60, 0.9) 100%);
+        color: #000 !important;
         border: none;
         border-radius: 10px;
         padding: 0.75rem 1.5rem;
-        font-weight: 600;
+        font-weight: 700;
         font-size: 14px;
-        letter-spacing: 0.3px;
+        letter-spacing: 0.5px;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        box-shadow: 0 4px 15px rgba(0, 255, 100, 0.3), 0 0 30px rgba(0, 255, 100, 0.1);
+        text-transform: uppercase;
     }
     
     .stButton > button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+        box-shadow: 0 6px 25px rgba(0, 255, 100, 0.5), 0 0 40px rgba(0, 255, 100, 0.2);
+        background: linear-gradient(135deg, rgba(0, 255, 100, 1) 0%, rgba(0, 200, 80, 1) 100%);
     }
     
     /* Download Button */
     .stDownloadButton > button {
-        background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        background: linear-gradient(135deg, rgba(0, 180, 255, 0.9) 0%, rgba(0, 120, 200, 0.9) 100%) !important;
+        box-shadow: 0 4px 15px rgba(0, 180, 255, 0.3);
+        color: #000 !important;
     }
     
-    /* Tabs - More visible */
+    .stDownloadButton > button:hover {
+        box-shadow: 0 6px 25px rgba(0, 180, 255, 0.5);
+    }
+    
+    /* Tabs - Matrix themed */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        background: rgba(139, 92, 246, 0.1);
+        background: rgba(0, 40, 20, 0.6);
         padding: 8px;
         border-radius: 12px;
-        border: 1px solid rgba(139, 92, 246, 0.2);
+        border: 1px solid rgba(0, 255, 100, 0.2);
     }
     
     .stTabs [data-baseweb="tab"] {
         background: transparent;
         border-radius: 8px;
-        color: rgba(255, 255, 255, 0.7);
+        color: rgba(0, 255, 100, 0.7);
         border: 1px solid transparent;
         padding: 10px 20px;
         font-weight: 500;
@@ -158,88 +251,110 @@ st.markdown("""
     }
     
     .stTabs [data-baseweb="tab"]:hover {
-        color: rgba(255, 255, 255, 0.95);
-        background: rgba(139, 92, 246, 0.15);
-        border: 1px solid rgba(139, 92, 246, 0.3);
+        color: rgba(0, 255, 100, 0.95);
+        background: rgba(0, 255, 100, 0.1);
+        border: 1px solid rgba(0, 255, 100, 0.3);
     }
     
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%) !important;
-        color: white !important;
+        background: linear-gradient(135deg, rgba(0, 200, 80, 0.9) 0%, rgba(0, 150, 60, 0.9) 100%) !important;
+        color: #000 !important;
         border: none !important;
-        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+        box-shadow: 0 4px 15px rgba(0, 255, 100, 0.4), 0 0 20px rgba(0, 255, 100, 0.2);
+        font-weight: 700;
     }
     
-    /* File Uploader - More visible border */
+    /* File Uploader - Matrix themed */
     [data-testid="stFileUploader"] {
-        background: rgba(139, 92, 246, 0.05);
+        background: rgba(0, 40, 20, 0.4);
         border-radius: 12px;
         padding: 16px;
-        border: 2px dashed rgba(139, 92, 246, 0.5) !important;
+        border: 2px dashed rgba(0, 255, 100, 0.4) !important;
         transition: all 0.3s ease;
     }
     
     [data-testid="stFileUploader"]:hover {
-        border-color: rgba(139, 92, 246, 0.8) !important;
-        background: rgba(139, 92, 246, 0.1);
+        border-color: rgba(0, 255, 100, 0.7) !important;
+        background: rgba(0, 255, 100, 0.05);
+        box-shadow: 0 0 30px rgba(0, 255, 100, 0.1);
     }
     
-    /* Typography */
+    /* Typography - Matrix themed */
     h1 {
-        color: #ffffff !important;
+        color: #00ff66 !important;
         font-weight: 700 !important;
         font-size: 2rem !important;
         letter-spacing: -0.5px;
+        text-shadow: 0 0 10px rgba(0, 255, 100, 0.5), 0 0 30px rgba(0, 255, 100, 0.3);
     }
     
     h2, h3 {
-        color: #ffffff !important;
+        color: #00ff66 !important;
         font-weight: 600 !important;
+        text-shadow: 0 0 8px rgba(0, 255, 100, 0.3);
     }
     
     p, label, .stMarkdown {
-        color: rgba(255, 255, 255, 0.8) !important;
+        color: rgba(0, 255, 100, 0.85) !important;
     }
     
-    /* Queue Items - More visible borders */
+    /* Queue Items - Matrix themed */
     .queue-item {
-        background: rgba(255, 255, 255, 0.05);
-        border: 2px solid rgba(139, 92, 246, 0.25);
+        background: rgba(0, 40, 20, 0.5);
+        border: 2px solid rgba(0, 255, 100, 0.2);
         border-radius: 10px;
         padding: 12px 16px;
         margin: 8px 0;
         transition: all 0.3s ease;
+        font-family: 'Share Tech Mono', monospace;
     }
     
     .queue-item:hover {
-        background: rgba(255, 255, 255, 0.08);
-        border-color: rgba(139, 92, 246, 0.4);
+        background: rgba(0, 255, 100, 0.05);
+        border-color: rgba(0, 255, 100, 0.4);
+        box-shadow: 0 0 20px rgba(0, 255, 100, 0.1);
     }
     
     .queue-item.processing {
-        background: rgba(139, 92, 246, 0.15);
-        border: 2px solid rgba(139, 92, 246, 0.6);
+        background: rgba(0, 255, 100, 0.1);
+        border: 2px solid rgba(0, 255, 100, 0.5);
+        animation: pulse-glow 2s infinite;
+    }
+    
+    @keyframes pulse-glow {
+        0%, 100% { box-shadow: 0 0 5px rgba(0, 255, 100, 0.3); }
+        50% { box-shadow: 0 0 20px rgba(0, 255, 100, 0.6); }
     }
     
     .queue-item.completed {
-        background: rgba(16, 185, 129, 0.15);
-        border: 2px solid rgba(16, 185, 129, 0.5);
+        background: rgba(0, 180, 255, 0.1);
+        border: 2px solid rgba(0, 180, 255, 0.5);
     }
     
     .queue-item.failed {
-        background: rgba(239, 68, 68, 0.15);
-        border: 2px solid rgba(239, 68, 68, 0.5);
+        background: rgba(255, 50, 50, 0.1);
+        border: 2px solid rgba(255, 50, 50, 0.5);
     }
     
     /* Info/Success/Warning/Error boxes */
     .stAlert {
         border-radius: 10px !important;
+        background: rgba(0, 40, 20, 0.7) !important;
+        border: 1px solid rgba(0, 255, 100, 0.3) !important;
     }
     
-    /* Progress Bar */
+    /* Progress Bar - Matrix green */
     .stProgress > div > div {
-        background: linear-gradient(90deg, #8B5CF6, #6366F1) !important;
+        background: linear-gradient(90deg, #00ff66, #00cc55, #00ff66) !important;
+        background-size: 200% 100%;
+        animation: progress-glow 2s linear infinite;
         border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 255, 100, 0.5);
+    }
+    
+    @keyframes progress-glow {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 200% 50%; }
     }
     
     /* Radio Buttons */
@@ -247,16 +362,27 @@ st.markdown("""
         gap: 12px;
     }
     
-    /* Metric */
+    .stRadio label {
+        color: rgba(0, 255, 100, 0.85) !important;
+    }
+    
+    /* Metric - Matrix themed */
     [data-testid="stMetricValue"] {
-        color: #8B5CF6 !important;
+        color: #00ff66 !important;
         font-weight: 700 !important;
+        font-family: 'Share Tech Mono', monospace !important;
+        text-shadow: 0 0 10px rgba(0, 255, 100, 0.5);
+    }
+    
+    [data-testid="stMetricLabel"] {
+        color: rgba(0, 255, 100, 0.6) !important;
     }
     
     /* Expander */
     .streamlit-expanderHeader {
-        background: rgba(255, 255, 255, 0.03) !important;
+        background: rgba(0, 40, 20, 0.5) !important;
         border-radius: 10px !important;
+        color: #00ff66 !important;
     }
     
     /* Custom Title Styling */
@@ -266,47 +392,91 @@ st.markdown("""
     }
     
     .main-title h1 {
-        background: linear-gradient(135deg, #8B5CF6, #EC4899);
+        background: linear-gradient(135deg, #00ff66, #00ffaa, #00ff66);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        font-size: 2.5rem !important;
+        font-size: 2.8rem !important;
         margin-bottom: 0.25rem;
+        animation: title-glow 3s ease-in-out infinite;
+        text-shadow: none;
+    }
+    
+    @keyframes title-glow {
+        0%, 100% { filter: drop-shadow(0 0 10px rgba(0, 255, 100, 0.5)); }
+        50% { filter: drop-shadow(0 0 20px rgba(0, 255, 100, 0.8)); }
     }
     
     .main-title p {
-        color: rgba(255, 255, 255, 0.5) !important;
-        font-size: 0.95rem;
+        color: rgba(0, 255, 100, 0.5) !important;
+        font-size: 1rem;
+        font-family: 'Share Tech Mono', monospace;
+        letter-spacing: 2px;
     }
     
     /* Divider */
     hr {
         border: none;
         height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        background: linear-gradient(90deg, transparent, rgba(0, 255, 100, 0.3), transparent);
         margin: 1.5rem 0;
     }
     
-    /* Scrollbar */
+    /* Scrollbar - Matrix themed */
     ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
     }
     
     ::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.2);
+        background: rgba(0, 20, 10, 0.5);
         border-radius: 10px;
     }
     
     ::-webkit-scrollbar-thumb {
-        background: rgba(139, 92, 246, 0.5);
+        background: rgba(0, 255, 100, 0.4);
         border-radius: 10px;
     }
     
     ::-webkit-scrollbar-thumb:hover {
-        background: rgba(139, 92, 246, 0.7);
+        background: rgba(0, 255, 100, 0.6);
+    }
+    
+    /* Selection color */
+    ::selection {
+        background: rgba(0, 255, 100, 0.3);
+        color: #00ff66;
     }
 </style>
+
+<!-- Matrix Rain Background HTML -->
+<div class="matrix-bg">
+    <div class="matrix-column">ア イ ウ エ オ カ キ ク ケ コ 0 1 0 1 サ シ ス セ ソ</div>
+    <div class="matrix-column">1 0 1 タ チ ツ テ ト ナ ニ ヌ ネ ノ 0 1 0 ハ ヒ フ</div>
+    <div class="matrix-column">マ ミ ム メ モ 0 1 1 0 ヤ ユ ヨ ラ リ ル レ ロ ワ</div>
+    <div class="matrix-column">0 1 0 1 0 ア カ サ タ ナ ハ マ ヤ ラ ワ 1 0 1 0 1</div>
+    <div class="matrix-column">キ シ チ ニ ヒ ミ リ 0 1 0 ク ス ツ ヌ フ ム ル</div>
+    <div class="matrix-column">1 1 0 0 1 ケ セ テ ネ ヘ メ レ 0 0 1 1 0 コ ソ ト</div>
+    <div class="matrix-column">ノ ホ モ ヨ ロ 1 0 1 ア イ ウ エ オ 0 1 0 1 0 1</div>
+    <div class="matrix-column">0 カ キ ク 1 ケ コ 0 サ シ 1 ス セ 0 ソ タ 1 チ ツ</div>
+    <div class="matrix-column">テ ト 0 1 ナ ニ ヌ ネ ノ 1 0 ハ ヒ フ ヘ ホ 0 1 0</div>
+    <div class="matrix-column">1 マ ミ ム メ モ 0 ヤ ユ ヨ 1 ラ リ ル レ ロ 0 1 ワ</div>
+    <div class="matrix-column">ア 0 イ 1 ウ 0 エ 1 オ 0 カ 1 キ 0 ク 1 ケ 0 コ 1</div>
+    <div class="matrix-column">サ シ ス 0 1 0 セ ソ タ 1 0 1 チ ツ テ 0 1 0 ト ナ</div>
+    <div class="matrix-column">1 0 ニ ヌ ネ 1 0 ノ ハ ヒ 1 0 フ ヘ ホ 1 0 マ ミ ム</div>
+    <div class="matrix-column">メ モ 1 0 1 ヤ ユ ヨ 0 1 0 ラ リ ル 1 0 1 レ ロ ワ</div>
+    <div class="matrix-column">0 1 ア イ 0 1 ウ エ 0 1 オ カ 0 1 キ ク 0 1 ケ コ</div>
+    <div class="matrix-column">サ 0 シ 1 ス 0 セ 1 ソ 0 タ 1 チ 0 ツ 1 テ 0 ト 1</div>
+    <div class="matrix-column">1 1 0 0 1 1 0 0 ナ ニ ヌ ネ ノ ハ ヒ フ ヘ ホ 0 0</div>
+    <div class="matrix-column">マ ミ ム メ 0 1 モ ヤ ユ 1 0 ヨ ラ リ 0 1 ル レ ロ</div>
+    <div class="matrix-column">0 ワ 1 ア 0 イ 1 ウ 0 エ 1 オ 0 カ 1 キ 0 ク 1 ケ</div>
+    <div class="matrix-column">コ サ 0 1 0 シ ス セ 1 0 1 ソ タ チ 0 1 0 ツ テ ト</div>
+    <div class="matrix-column">1 0 1 0 1 ナ ニ ヌ ネ ノ 0 1 0 1 0 ハ ヒ フ ヘ ホ</div>
+    <div class="matrix-column">マ 1 ミ 0 ム 1 メ 0 モ 1 ヤ 0 ユ 1 ヨ 0 ラ 1 リ 0</div>
+    <div class="matrix-column">ル レ ロ 0 0 1 1 ワ ア イ 1 1 0 0 ウ エ オ カ キ ク</div>
+    <div class="matrix-column">0 1 1 0 ケ コ サ シ 1 0 0 1 ス セ ソ タ 0 1 1 0</div>
+    <div class="matrix-column">チ ツ 0 テ ト 1 ナ ニ 0 ヌ ネ 1 ノ ハ 0 ヒ フ 1 ヘ ホ</div>
+</div>
 """, unsafe_allow_html=True)
 
 # --- RETRY DECORATOR FOR API CALLS ---
@@ -634,7 +804,7 @@ def process_video_from_url(url, video_name, writer_model_name, style_text="", cu
 st.markdown("""
 <div class="main-title">
     <h1>✨ Ultimate AI Studio</h1>
-    <p>Your All-in-One Creative Dashboard</p>
+    <p>// YOUR ALL-IN-ONE CREATIVE DASHBOARD //</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1406,10 +1576,9 @@ with tab4:
 
 # --- FOOTER ---
 st.markdown("""
-<div style='text-align: center; margin-top: 3rem; padding: 1.5rem 0; border-top: 1px solid rgba(255,255,255,0.05);'>
-    <p style='color: rgba(255,255,255,0.4) !important; font-size: 0.85rem; margin: 0;'>
-        ✨ Ultimate AI Studio • Powered by Google Gemini
+<div style='text-align: center; margin-top: 3rem; padding: 1.5rem 0; border-top: 1px solid rgba(0, 255, 100, 0.1);'>
+    <p style='color: rgba(0, 255, 100, 0.4) !important; font-size: 0.85rem; margin: 0; font-family: "Share Tech Mono", monospace; letter-spacing: 1px;'>
+        ✨ ULTIMATE AI STUDIO • POWERED BY GOOGLE GEMINI • ENTER THE MATRIX
     </p>
 </div>
 """, unsafe_allow_html=True)
-
