@@ -5,7 +5,15 @@ import time
 import os
 import tempfile
 import gc
+import io
 from PIL import Image
+
+# --- LIBRARY IMPORTS FOR PDF/DOCX ---
+try:
+    import PyPDF2
+    from docx import Document
+except ImportError:
+    st.error("⚠️ Libraries Missing! Please add 'PyPDF2' and 'python-docx' to your requirements.txt")
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -87,6 +95,34 @@ def upload_to_gemini(file_path, mime_type=None):
         st.error(f"Upload Error: {e}")
         return None
 
+# --- NEW FUNCTION: READ TEXT/PDF/DOCX ---
+def read_file_content(uploaded_file):
+    """Reads content from txt, pdf, or docx files."""
+    try:
+        # 1. Text File
+        if uploaded_file.type == "text/plain":
+            return uploaded_file.getvalue().decode("utf-8")
+        
+        # 2. PDF File
+        elif uploaded_file.type == "application/pdf":
+            reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.getvalue()))
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text() + "\n"
+            return text
+        
+        # 3. Word File (.docx)
+        elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            doc = Document(io.BytesIO(uploaded_file.getvalue()))
+            text = "\n".join([para.text for para in doc.paragraphs])
+            return text
+            
+        else:
+            return None
+    except Exception as e:
+        st.error(f"Error reading file: {e}")
+        return None
+
 # --- MAIN TITLE ---
 c1, c2 = st.columns([0.1, 0.9])
 with c1: st.markdown("<h1>✨</h1>", unsafe_allow_html=True)
@@ -125,11 +161,10 @@ with st.container(border=True):
 
 # --- TABS NAVIGATION ---
 st.write("") 
-# Added "Script Rewriter" tab
 tab1, tab2, tab3, tab4 = st.tabs(["🎬 Movie Recap", "🌍 Translator", "🎨 Thumbnail AI", "✍️ Script Rewriter"])
 
 # ==========================================
-# TAB 1: MOVIE RECAP GENERATOR (TWO-STAGE)
+# TAB 1: MOVIE RECAP GENERATOR
 # ==========================================
 with tab1:
     st.write("")
@@ -169,7 +204,6 @@ with tab1:
                 
                 with st.container(border=True):
                     st.markdown(f"**✅ Result: {video_file.name}**")
-                    
                     tmp_path = None
                     try:
                         with tempfile.NamedTemporaryFile(delete=False, suffix=f".{video_file.name.split('.')[-1]}") as tmp:
@@ -294,7 +328,7 @@ with tab3:
             st.link_button("Open yupp.ai", "https://yupp.ai")
 
 # ==========================================
-# TAB 4: SCRIPT REWRITER (NEW FEATURE)
+# TAB 4: SCRIPT REWRITER (UPDATED FOR PDF/DOCX)
 # ==========================================
 with tab4:
     st.write("")
@@ -304,8 +338,8 @@ with tab4:
         with st.container(border=True):
             st.subheader("✍️ Style & Source")
             
-            # 1. Style Upload
-            rewrite_style_file = st.file_uploader("1. Upload Writing Style (txt/pdf/docx)", type=["txt", "pdf", "docx", "doc"])
+            # 1. Style Upload (Updated Types)
+            rewrite_style_file = st.file_uploader("1. Upload Writing Style", type=["txt", "pdf", "docx"])
             
             # 2. Input Script
             original_script = st.text_area("2. Paste Original Script Here", height=300, placeholder="Paste the script you want to rewrite...")
@@ -326,12 +360,15 @@ with tab4:
                 try:
                     # Process Style File
                     style_content_rewrite = "Standard Professional Tone" # Default
+                    
                     if rewrite_style_file:
-                        # Simple text reading for now (Expandable for PDF/Doc later)
-                        try:
-                            style_content_rewrite = rewrite_style_file.getvalue().decode("utf-8")
-                        except:
-                            style_content_rewrite = "Complex file format detected. Please use .txt for best results."
+                        with st.spinner("📖 Reading Style File..."):
+                            extracted_text = read_file_content(rewrite_style_file)
+                            if extracted_text:
+                                style_content_rewrite = extracted_text
+                                st.success(f"✅ Loaded style from {rewrite_style_file.name}")
+                            else:
+                                st.warning("Could not read style file. Using default.")
 
                     with st.spinner("🤖 Rewriting... (Keeping 100% Content, Changing Style)"):
                         rewrite_model = genai.GenerativeModel(writer_model_name)
@@ -349,12 +386,13 @@ with tab4:
                         3. **MATCH STYLE:** Strictly mimic the tone, vocabulary, and rhythm of the provided style sample.
                         4. **OUTPUT LANGUAGE:** Burmese (Myanmar).
                         
-                        **TARGET WRITING STYLE:**
-                        {style_content_rewrite}
+                        **TARGET WRITING STYLE REFERENCE:**
+                        {style_content_rewrite[:5000]} 
                         
                         **ORIGINAL SCRIPT:**
                         {original_script}
                         """
+                        # Note: Sliced style content to first 5000 chars to avoid token limit issues if pdf is huge
                         
                         rewrite_response = rewrite_model.generate_content(rewrite_prompt)
                         
@@ -368,7 +406,7 @@ with tab4:
                 st.session_state['run_rewrite'] = False
         else:
              with st.container(border=True):
-                st.info("💡 Paste a script and upload a style to rewrite.")
+                st.info("💡 Paste a script and upload a style (PDF/Docx/Txt) to rewrite.")
 
 # --- FOOTER ---
 st.markdown("<div style='text-align: center; margin-top: 50px; opacity: 0.5; font-size: 0.8rem;'>Glassmorphism Edition • Powered by Gemini</div>", unsafe_allow_html=True)
