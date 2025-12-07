@@ -283,52 +283,24 @@ with tab2:
              with st.container(border=True):
                 st.info("Waiting for file...")
 # ==========================================
-# TAB 3: AI THUMBNAIL STUDIO
+# TAB 3: AI THUMBNAIL STUDIO (EMBEDDED)
 # ==========================================
 with tab3:
     st.write("")
-    col_1, col_2 = st.columns([1, 1], gap="medium")
-    
-    with col_1:
-        with st.container(border=True):
-            st.subheader("🖼️ Reference Images")
-            uploaded_images = st.file_uploader("Upload (Max 4)", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=True)
-            if uploaded_images: 
-                st.image([Image.open(i) for i in uploaded_images[:4]], width=100)
-                
-            st.subheader("✍️ Vision")
-            user_prompt = st.text_area("Describe your idea...", placeholder="Action movie style, red background...", height=100)
-            
-            if st.button("✨ Generate Plan", use_container_width=True):
-                st.session_state['run_thumb'] = True
-
-    with col_2:
-        if st.session_state.get('run_thumb') and api_key and uploaded_images:
-            with st.container(border=True):
-                st.subheader("🎨 AI Plan")
-                try:
-                    input_content = [user_prompt]
-                    with st.spinner("Thinking..."):
-                        for img_file in uploaded_images[:4]:
-                            img = Image.open(img_file)
-                            input_content.append(img)
-                        
-                        # ⚠️ HERE IS THE FIX: Force use of gemini-1.5-pro for Vision
-                        model_vision = genai.GenerativeModel("gemini-1.5-pro")
-                        input_content.append("\n\nAct as a professional YouTube Thumbnail Designer. Output a structured plan: 1. Title, 2. Visual Description, 3. Text Overlay, 4. Detailed Image Generation Prompt.")
-                        
-                        response = model_vision.generate_content(input_content)
-                        
-                        st.markdown(response.text)
-                        st.download_button("📥 Download Plan", response.text, file_name="thumbnail_plan.txt")
-                except Exception as e: 
-                    st.error(f"Error: {e}")
-                st.session_state['run_thumb'] = False
-        else:
-             with st.container(border=True):
-                st.info("Upload images to see the magic.")
+    # ဒီနေရာမှာ yupp.ai ကို တိုက်ရိုက်ခေါ်ထားပါတယ်
+    with st.container(border=True):
+        st.subheader("🎨 Yupp.ai Thumbnail Studio")
+        
+        # External Website Embedding
+        try:
+            # scrolling=True ထားမှ အဆင်ပြေမယ်
+            components.iframe("https://yupp.ai", height=800, scrolling=True)
+        except Exception as e:
+            st.error("Website ချိတ်ဆက်မရပါ။")
+            st.link_button("🌐 Open yupp.ai in New Tab", "https://yupp.ai")
 
 # --- FOOTER ---
 st.markdown("<div style='text-align: center; margin-top: 50px; opacity: 0.5; font-size: 0.8rem;'>Glassmorphism Edition • Powered by Gemini</div>", unsafe_allow_html=True)
+
 
 
