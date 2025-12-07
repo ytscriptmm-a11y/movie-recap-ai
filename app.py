@@ -78,12 +78,20 @@ st.markdown("""
     }
     h1, h2, h3 { color: white !important; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
     p, label { color: #e0e0e0 !important; }
-    .processing-box {
-        background: rgba(142, 45, 226, 0.1);
-        border: 2px solid rgba(142, 45, 226, 0.3);
-        border-radius: 15px;
-        padding: 15px;
-        margin: 10px 0;
+    .queue-item {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 10px;
+        margin: 5px 0;
+    }
+    .queue-item.processing {
+        background: rgba(142, 45, 226, 0.2);
+        border: 2px solid rgba(142, 45, 226, 0.5);
+    }
+    .queue-item.completed {
+        background: rgba(76, 175, 80, 0.2);
+        border: 1px solid rgba(76, 175, 80, 0.5);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -126,20 +134,74 @@ def read_file_content(uploaded_file):
         st.error(f"Error reading file: {e}")
         return None
 
-# --- AUTO DOWNLOAD FUNCTION ---
-def trigger_download(content, filename):
-    """Triggers automatic download using JavaScript"""
-    import base64
-    b64 = base64.b64encode(content.encode()).decode()
-    download_js = f"""
-    <script>
-    var link = document.createElement('a');
-    link.href = 'data:text/plain;base64,{b64}';
-    link.download = '{filename}';
-    link.click();
-    </script>
-    """
-    st.components.v1.html(download_js, height=0)
+# --- PROCESS SINGLE VIDEO FUNCTION ---
+def process_single_video(video_bytes, video_name, writer_model_name, style_text=""):
+    """Process one video file and return the script"""
+    tmp_path = None
+    try:
+        # Save to temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{video_name.split('.')[-1]}") as tmp:
+            tmp.write(video_bytes)
+            tmp_path = tmp.name
+        
+        # Upload to Gemini
+        gemini_file = upload_to_gemini(tmp_path)
+        
+        if not gemini_file:
+            return None, "Failed to upload to Gemini"
+        
+        # Vision Analysis
+        vision_model = genai.GenerativeModel("models/gemini-2.5-pro")
+        vision_prompt = """
+        Watch this video carefully. 
+        Generate a highly detailed, chronological scene-by-scene description.
+        Include dialogue summaries, visual details, emotions, and actions.
+        No creative writing yet, just facts.
+        """
+        
+        vision_response = vision_model.generate_content([gemini_file, vision_prompt], request_options={"timeout": 600})
+        video_description = vision_response.text
+        
+        # Script Writing
+        writer_model = genai.GenerativeModel(writer_model_name)
+        writer_prompt = f"""
+        You are a professional Burmese Movie Recap Scriptwriter.
+        Turn this description into an engaging **Burmese Movie Recap Script**.
+        
+        **INPUT DATA:**
+        {video_description}
+        
+        {style_text}
+        
+        **INSTRUCTIONS:**
+        1. Write in 100% Burmese.
+        2. Use a storytelling tone.
+        3. Cover the whole story.
+        4. Do not summarize too much; keep details.
+        5. Scene-by-scene. 
+        6. Full narration.                         
+        """
+        
+        final_response = writer_model.generate_content(writer_prompt)
+        
+        # Cleanup
+        try: 
+            genai.delete_file(gemini_file.name)
+        except: 
+            pass
+        
+        return final_response.text, None
+        
+    except Exception as e:
+        return None, str(e)
+    
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except:
+                pass
+        gc.collect()
 
 # --- MAIN TITLE ---
 c1, c2 = st.columns([0.1, 0.9])
@@ -182,16 +244,24 @@ st.write("")
 tab1, tab2, tab3, tab4 = st.tabs(["🎬 Movie Recap", "🌍 Translator", "🎨 Thumbnail AI", "✍️ Script Rewriter"])
 
 # ==========================================
-# TAB 1: MOVIE RECAP GENERATOR (SEQUENTIAL PROCESSING - MAX 10 FILES)
+# TAB 1: MOVIE RECAP GENERATOR (QUEUE-BASED SYSTEM)
 # ==========================================
 with tab1:
     st.write("")
     col_left, col_right = st.columns([1, 1], gap="medium")
 
+    # Initialize session states
+    if 'video_queue' not in st.session_state:
+        st.session_state['video_queue'] = []
+    if 'processing_queue' not in st.session_state:
+        st.session_state['processing_queue'] = False
+    if 'current_processing_index' not in st.session_state:
+        st.session_state['current_processing_index'] = 0
+
     with col_left:
         with st.container(border=True):
             st.subheader("📂 Input Files")
-            st.info("📌 Maximum 10 videos • Files will be processed one by one automatically")
+            st.info("📌 Maximum 10 videos • Add files to queue, they'll process one by one")
             
             uploaded_videos = st.file_uploader(
                 "Upload Movies (Max 10)", 
@@ -200,201 +270,170 @@ with tab1:
                 key="video_uploader"
             )
             
-            # Display file count
-            if uploaded_videos:
-                file_count = len(uploaded_videos)
-                if file_count > 10:
-                    st.error(f"⚠️ Too many files! You uploaded {file_count} files. Please select maximum 10 files.")
-                    uploaded_videos = uploaded_videos[:10]  # Limit to 10
+            # Add to Queue Button
+            if st.button("➕ Add to Queue", use_container_width=True):
+                if not uploaded_videos:
+                    st.warning("Please select video files first!")
                 else:
-                    st.success(f"✅ {file_count} file(s) ready for processing")
+                    # Add files to queue
+                    for video in uploaded_videos:
+                        if len(st.session_state['video_queue']) >= 10:
+                            st.warning(f"⚠️ Queue is full! Maximum 10 videos. Skipping: {video.name}")
+                            break
+                        # Store video data
+                        st.session_state['video_queue'].append({
+                            'name': video.name,
+                            'bytes': video.getvalue(),
+                            'status': 'waiting',  # waiting, processing, completed, failed
+                            'script': None,
+                            'error': None
+                        })
+                    st.success(f"✅ Added {min(len(uploaded_videos), 10)} file(s) to queue!")
+                    st.rerun()
             
             st.markdown("---")
             st.markdown("**⚙️ Settings**")
             style_file = st.file_uploader("Writing Style (txt, pdf, docx)", type=["txt", "pdf", "docx"])
             
-            if st.button("🚀 Start Sequential Processing", use_container_width=True):
+            # Read style file
+            style_text = ""
+            if style_file:
+                extracted_style = read_file_content(style_file)
+                if extracted_style:
+                    style_text = f"\n\n**WRITING STYLE REFERENCE:**\nPlease mimic the tone and style of the following text:\n---\n{extracted_style[:5000]}\n---\n"
+                    st.session_state['style_text'] = style_text
+            
+            st.markdown("---")
+            
+            # Start Processing Button
+            if st.button("🚀 Start Processing Queue", use_container_width=True, disabled=len(st.session_state['video_queue']) == 0):
                 if not api_key:
                     st.error("Please enter API Key above.")
-                elif not uploaded_videos:
-                    st.warning("Please upload video files.")
-                elif len(uploaded_videos) > 10:
-                    st.error("Maximum 10 files allowed!")
                 else:
-                    # Store uploaded files in session state to prevent loss during rerun
-                    st.session_state['uploaded_video_files'] = uploaded_videos
-                    st.session_state['processing_recap'] = True
-                    st.session_state['current_file_index'] = 0
-                    st.session_state['total_files'] = len(uploaded_videos)
+                    st.session_state['processing_queue'] = True
+                    st.session_state['current_processing_index'] = 0
+                    st.rerun()
+            
+            # Clear Queue Button
+            if st.button("🗑️ Clear Queue", use_container_width=True, disabled=len(st.session_state['video_queue']) == 0):
+                st.session_state['video_queue'] = []
+                st.session_state['processing_queue'] = False
+                st.session_state['current_processing_index'] = 0
+                st.success("Queue cleared!")
+                st.rerun()
 
     with col_right:
-        # Initialize session state
-        if 'processing_recap' not in st.session_state:
-            st.session_state['processing_recap'] = False
-        if 'current_file_index' not in st.session_state:
-            st.session_state['current_file_index'] = 0
+        with st.container(border=True):
+            st.subheader("📋 Processing Queue")
             
-        if st.session_state.get('processing_recap') and st.session_state.get('uploaded_video_files'):
-            uploaded_videos = st.session_state['uploaded_video_files']
-            current_index = st.session_state['current_file_index']
-            total_files = st.session_state.get('total_files', len(uploaded_videos))
-            
-            # Overall progress
-            st.markdown(f"### 📊 Progress: {current_index}/{total_files} files completed")
-            overall_progress = st.progress(current_index / total_files if total_files > 0 else 0)
-            
-            # Process current file
-            if current_index < total_files:
-                video_file = uploaded_videos[current_index]
+            if len(st.session_state['video_queue']) == 0:
+                st.info("💡 Queue is empty. Add videos to start processing.")
+            else:
+                # Show queue status
+                total = len(st.session_state['video_queue'])
+                completed = sum(1 for v in st.session_state['video_queue'] if v['status'] == 'completed')
+                failed = sum(1 for v in st.session_state['video_queue'] if v['status'] == 'failed')
                 
-                st.markdown(f"""
-                <div class='processing-box'>
-                    <h4>⏳ Processing File {current_index + 1}/{total_files}</h4>
-                    <p style='font-size: 1.1rem;'><strong>{video_file.name}</strong></p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"**Total:** {total} | **Completed:** {completed} | **Failed:** {failed}")
+                st.progress(completed / total if total > 0 else 0)
                 
-                # Read style file once
-                style_text = ""
-                if style_file and current_index == 0:  # Only read once
-                    with st.spinner("📖 Reading Style File..."):
-                        extracted_style = read_file_content(style_file)
-                        if extracted_style:
-                            style_text = f"\n\n**WRITING STYLE REFERENCE:**\nPlease mimic the tone and style of the following text:\n---\n{extracted_style[:5000]}\n---\n"
-                            st.session_state['style_text'] = style_text
-                            st.info("✅ Style Loaded Successfully!")
-                        else:
-                            st.warning("⚠️ Could not read style file. Proceeding with default style.")
-                elif 'style_text' in st.session_state:
-                    style_text = st.session_state['style_text']
+                st.markdown("---")
                 
-                # Processing container
-                with st.container(border=True):
-                    tmp_path = None
-                    try:
-                        # Step 1: Upload video
-                        with st.spinner(f"📤 Uploading {video_file.name}..."):
-                            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{video_file.name.split('.')[-1]}") as tmp:
-                                tmp.write(video_file.getvalue())
-                                tmp_path = tmp.name
-                            
-                            gemini_file = upload_to_gemini(tmp_path)
-                        
-                        if gemini_file:
-                            # Step 2: AI Vision Analysis
-                            st.info("👀 AI Vision is analyzing the video...")
-                            vision_model = genai.GenerativeModel("models/gemini-2.5-pro")
-                            
-                            vision_prompt = """
-                            Watch this video carefully. 
-                            Generate a highly detailed, chronological scene-by-scene description.
-                            Include dialogue summaries, visual details, emotions, and actions.
-                            No creative writing yet, just facts.
-                            """
-                            
-                            vision_response = vision_model.generate_content([gemini_file, vision_prompt], request_options={"timeout": 600})
-                            video_description = vision_response.text
-                            st.success("✅ Video analysis complete!")
-                            
-                            # Step 3: Script Writing
-                            st.info(f"✍️ AI ({writer_model_name}) is writing the script...")
-                            writer_model = genai.GenerativeModel(writer_model_name)
-                            
-                            writer_prompt = f"""
-                            You are a professional Burmese Movie Recap Scriptwriter.
-                            Turn this description into an engaging **Burmese Movie Recap Script**.
-                            
-                            **INPUT DATA:**
-                            {video_description}
-                            
-                            {style_text}
-                            
-                            **INSTRUCTIONS:**
-                            1. Write in 100% Burmese.
-                            2. Use a storytelling tone.
-                            3. Cover the whole story.
-                            4. Do not summarize too much; keep details.
-                            5. Scene-by-scene. 
-                            6. Full narration.                         
-                            """
-                            
-                            final_response = writer_model.generate_content(writer_prompt)
-                            final_script = final_response.text
-                            
-                            st.success("✅ Script generated successfully!")
-                            
-                            # Step 4: Auto Download
-                            filename = f"{video_file.name.rsplit('.', 1)[0]}_recap.txt"
-                            trigger_download(final_script, filename)
-                            st.success(f"📥 Auto-downloading: {filename}")
-                            
-                            # Show preview
-                            with st.expander("📄 Preview Script"):
-                                st.text_area("Script Content", final_script, height=200, key=f"preview_{current_index}")
-                            
-                            # Manual download button as backup
-                            st.download_button(
-                                "📥 Manual Download (Backup)", 
-                                final_script, 
-                                file_name=filename,
-                                key=f"manual_dl_{current_index}"
-                            )
-                            
-                            # Clean up Gemini file
-                            try: 
-                                genai.delete_file(gemini_file.name)
-                            except: 
-                                pass
-                        
-                        else:
-                            st.error(f"❌ Failed to upload {video_file.name} to Gemini")
-                            
-                    except Exception as e:
-                        st.error(f"❌ Error processing {video_file.name}: {e}")
+                # Display queue items
+                for idx, item in enumerate(st.session_state['video_queue']):
+                    status_emoji = {
+                        'waiting': '⏳',
+                        'processing': '🔄',
+                        'completed': '✅',
+                        'failed': '❌'
+                    }
                     
-                    finally:
-                        # Clean up temp file
-                        if tmp_path and os.path.exists(tmp_path):
-                            try:
-                                os.remove(tmp_path)
-                            except:
-                                pass
-                        del tmp_path
-                        gc.collect()
+                    css_class = item['status']
+                    
+                    st.markdown(f"""
+                    <div class='queue-item {css_class}'>
+                        <strong>{status_emoji[item['status']]} {idx + 1}. {item['name']}</strong>
+                        <br><small>Status: {item['status'].upper()}</small>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Show download button for completed items
+                    if item['status'] == 'completed' and item['script']:
+                        filename = f"{item['name'].rsplit('.', 1)[0]}_recap.txt"
+                        st.download_button(
+                            f"📥 Download Script #{idx + 1}",
+                            item['script'],
+                            file_name=filename,
+                            key=f"download_{idx}"
+                        )
+                    
+                    # Show error for failed items
+                    if item['status'] == 'failed' and item['error']:
+                        st.error(f"Error: {item['error']}")
+        
+        # Process queue
+        if st.session_state['processing_queue']:
+            current_idx = st.session_state['current_processing_index']
+            
+            if current_idx < len(st.session_state['video_queue']):
+                current_item = st.session_state['video_queue'][current_idx]
                 
-                # Move to next file
-                st.session_state['current_file_index'] += 1
-                time.sleep(1)  # Brief pause
-                if st.session_state['current_file_index'] < total_files:
-                    st.rerun()  # Only rerun if more files to process
+                if current_item['status'] == 'waiting':
+                    # Update status to processing
+                    st.session_state['video_queue'][current_idx]['status'] = 'processing'
+                    
+                    with st.container(border=True):
+                        st.markdown(f"### 🔄 Processing: {current_item['name']}")
+                        
+                        progress_text = st.empty()
+                        
+                        # Step 1: Upload
+                        progress_text.info("📤 Uploading to Gemini...")
+                        
+                        # Get style text
+                        style_text = st.session_state.get('style_text', "")
+                        
+                        # Step 2: Process
+                        progress_text.info("👀 AI is analyzing video...")
+                        
+                        # Process video
+                        script, error = process_single_video(
+                            current_item['bytes'],
+                            current_item['name'],
+                            writer_model_name,
+                            style_text
+                        )
+                        
+                        if script:
+                            # Success
+                            st.session_state['video_queue'][current_idx]['status'] = 'completed'
+                            st.session_state['video_queue'][current_idx]['script'] = script
+                            progress_text.success(f"✅ Completed: {current_item['name']}")
+                            
+                            # Auto download
+                            filename = f"{current_item['name'].rsplit('.', 1)[0]}_recap.txt"
+                            st.download_button(
+                                "📥 Download Now",
+                                script,
+                                file_name=filename,
+                                key=f"auto_dl_{current_idx}"
+                            )
+                        else:
+                            # Failed
+                            st.session_state['video_queue'][current_idx]['status'] = 'failed'
+                            st.session_state['video_queue'][current_idx]['error'] = error
+                            progress_text.error(f"❌ Failed: {current_item['name']}")
+                        
+                        # Move to next
+                        st.session_state['current_processing_index'] += 1
+                        time.sleep(1)
+                        st.rerun()
             
             else:
-                # All files processed
-                st.success("🎉 All scripts generated successfully!")
+                # All done
+                st.success("🎉 All videos processed!")
                 st.balloons()
-                
-                # Reset button
-                if st.button("🔄 Process New Files", use_container_width=True):
-                    st.session_state['processing_recap'] = False
-                    st.session_state['current_file_index'] = 0
-                    st.session_state['uploaded_video_files'] = None
-                    st.session_state['total_files'] = 0
-                    if 'style_text' in st.session_state:
-                        del st.session_state['style_text']
-                    st.rerun()
-        
-        else:
-            with st.container(border=True):
-                st.info("💡 Upload up to 10 videos and click 'Start Sequential Processing'")
-                st.markdown("""
-                **How it works:**
-                1. Upload 1-10 video files
-                2. Optionally add writing style reference
-                3. Click 'Start Sequential Processing'
-                4. Each video will be processed one by one
-                5. Scripts auto-download after completion
-                6. Previous video is deleted before next starts
-                """)
+                st.session_state['processing_queue'] = False
 
 # ==========================================
 # TAB 2: UNIVERSAL TRANSLATOR
