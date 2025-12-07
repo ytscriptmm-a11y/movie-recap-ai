@@ -95,15 +95,13 @@ def upload_to_gemini(file_path, mime_type=None):
         st.error(f"Upload Error: {e}")
         return None
 
-# --- NEW FUNCTION: READ TEXT/PDF/DOCX ---
+# --- READ TEXT/PDF/DOCX FUNCTION ---
 def read_file_content(uploaded_file):
     """Reads content from txt, pdf, or docx files."""
     try:
-        # 1. Text File
         if uploaded_file.type == "text/plain":
             return uploaded_file.getvalue().decode("utf-8")
         
-        # 2. PDF File
         elif uploaded_file.type == "application/pdf":
             reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.getvalue()))
             text = ""
@@ -111,12 +109,10 @@ def read_file_content(uploaded_file):
                 text += page.extract_text() + "\n"
             return text
         
-        # 3. Word File (.docx)
         elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
             doc = Document(io.BytesIO(uploaded_file.getvalue()))
             text = "\n".join([para.text for para in doc.paragraphs])
             return text
-            
         else:
             return None
     except Exception as e:
@@ -146,7 +142,7 @@ with st.container(border=True):
             "gemini-1.5-flash", 
             "models/gemini-2.5-pro",
             "models/gemini-3-pro-preview",
-            "models/gemini-2.5-flash"    
+            "models/gemini-2.5-flash"        
             ]
         )
         
@@ -164,7 +160,7 @@ st.write("")
 tab1, tab2, tab3, tab4 = st.tabs(["🎬 Movie Recap", "🌍 Translator", "🎨 Thumbnail AI", "✍️ Script Rewriter"])
 
 # ==========================================
-# TAB 1: MOVIE RECAP GENERATOR
+# TAB 1: MOVIE RECAP GENERATOR (UPDATED STYLE INPUT)
 # ==========================================
 with tab1:
     st.write("")
@@ -177,7 +173,8 @@ with tab1:
             
             st.markdown("---")
             st.markdown("**⚙️ Settings**")
-            style_file = st.file_uploader("Writing Style (Optional .txt)", type=["txt"])
+            # Updated to accept PDF/DOCX
+            style_file = st.file_uploader("Writing Style (txt, pdf, docx)", type=["txt", "pdf", "docx"])
             
             if st.button("🚀 Generate Scripts", use_container_width=True):
                 if not api_key:
@@ -192,10 +189,17 @@ with tab1:
             progress_bar = st.progress(0)
             status_box = st.empty()
             
+            # Updated Style Logic
             style_text = ""
             if style_file:
-                style_content = style_file.getvalue().decode("utf-8")
-                style_text = f"\n\n**WRITING STYLE:**\nPlease write the final script in this style:\n---\n{style_content}\n---\n"
+                with st.spinner("📖 Reading Style File..."):
+                    extracted_style = read_file_content(style_file)
+                    if extracted_style:
+                        # Limit style text to avoid token overflow if file is huge
+                        style_text = f"\n\n**WRITING STYLE REFERENCE:**\nPlease mimic the tone and style of the following text:\n---\n{extracted_style[:5000]}\n---\n"
+                        st.info("✅ Style Loaded Successfully!")
+                    else:
+                        st.warning("⚠️ Could not read style file. Proceeding with default style.")
 
             total_files = len(uploaded_videos)
             
@@ -328,7 +332,7 @@ with tab3:
             st.link_button("Open yupp.ai", "https://yupp.ai")
 
 # ==========================================
-# TAB 4: SCRIPT REWRITER (UPDATED FOR PDF/DOCX)
+# TAB 4: SCRIPT REWRITER
 # ==========================================
 with tab4:
     st.write("")
@@ -338,7 +342,7 @@ with tab4:
         with st.container(border=True):
             st.subheader("✍️ Style & Source")
             
-            # 1. Style Upload (Updated Types)
+            # 1. Style Upload
             rewrite_style_file = st.file_uploader("1. Upload Writing Style", type=["txt", "pdf", "docx"])
             
             # 2. Input Script
@@ -392,7 +396,6 @@ with tab4:
                         **ORIGINAL SCRIPT:**
                         {original_script}
                         """
-                        # Note: Sliced style content to first 5000 chars to avoid token limit issues if pdf is huge
                         
                         rewrite_response = rewrite_model.generate_content(rewrite_prompt)
                         
