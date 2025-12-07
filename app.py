@@ -7,6 +7,7 @@ import tempfile
 import gc
 import io
 from PIL import Image
+import requests
 
 # --- LIBRARY IMPORTS FOR PDF/DOCX ---
 try:
@@ -97,6 +98,64 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- HELPER FUNCTIONS ---
+def convert_google_drive_link(url):
+    """Convert Google Drive sharing link to direct download link"""
+    try:
+        if 'drive.google.com' in url:
+            if '/file/d/' in url:
+                file_id = url.split('/file/d/')[1].split('/')[0]
+            elif 'id=' in url:
+                file_id = url.split('id=')[1].split('&')[0]
+            else:
+                return None
+            return f"https://drive.google.com/uc?export=download&id={file_id}"
+        return url
+    except:
+        return None
+
+def download_video_from_url(url):
+    """Download video from URL to temp file"""
+    try:
+        # Convert Google Drive link
+        download_url = convert_google_drive_link(url)
+        if not download_url:
+            return None, "Invalid URL format"
+        
+        # Download with session to handle redirects
+        session = requests.Session()
+        response = session.get(download_url, stream=True, timeout=300)
+        
+        # Handle Google Drive virus scan warning
+        if 'download_warning' in response.text or 'quota' in response.text.lower():
+            # Try to get the confirm token
+            for key, value in response.cookies.items():
+                if key.startswith('download_warning'):
+                    params = {'confirm': value}
+                    response = session.get(download_url, params=params, stream=True, timeout=300)
+                    break
+        
+        if response.status_code != 200:
+            return None, f"Download failed with status {response.status_code}"
+        
+        # Save to temp file
+        file_ext = "mp4"  # Default extension
+        if 'content-disposition' in response.headers:
+            filename = response.headers['content-disposition'].split('filename=')[-1].strip('"')
+            file_ext = filename.split('.')[-1] if '.' in filename else 'mp4'
+        
+        tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}")
+        
+        # Download in chunks
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                tmp_file.write(chunk)
+        
+        tmp_file.close()
+        return tmp_file.name, None
+        
+    except Exception as e:
+        return None, str(e)
+
 def upload_to_gemini(file_path, mime_type=None):
     try:
         file = genai.upload_file(file_path, mime_type=mime_type)
@@ -110,7 +169,6 @@ def upload_to_gemini(file_path, mime_type=None):
         st.error(f"Upload Error: {e}")
         return None
 
-# --- READ TEXT/PDF/DOCX FUNCTION ---
 def read_file_content(uploaded_file):
     """Reads content from txt, pdf, or docx files."""
     try:
@@ -134,23 +192,21 @@ def read_file_content(uploaded_file):
         st.error(f"Error reading file: {e}")
         return None
 
-# --- PROCESS SINGLE VIDEO FUNCTION ---
-def process_single_video(video_bytes, video_name, writer_model_name, style_text=""):
-    """Process one video file and return the script"""
+def process_video_from_url(url, video_name, writer_model_name, style_text=""):
+    """Process video from URL"""
     tmp_path = None
     try:
-        # Save to temp file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{video_name.split('.')[-1]}") as tmp:
-            tmp.write(video_bytes)
-            tmp_path = tmp.name
+        # Step 1: Download video
+        tmp_path, error = download_video_from_url(url)
+        if error or not tmp_path:
+            return None, error or "Download failed"
         
-        # Upload to Gemini
+        # Step 2: Upload to Gemini
         gemini_file = upload_to_gemini(tmp_path)
-        
         if not gemini_file:
             return None, "Failed to upload to Gemini"
         
-        # Vision Analysis
+        # Step 3: Vision Analysis
         vision_model = genai.GenerativeModel("models/gemini-2.5-pro")
         vision_prompt = """
         Watch this video carefully. 
@@ -162,7 +218,7 @@ def process_single_video(video_bytes, video_name, writer_model_name, style_text=
         vision_response = vision_model.generate_content([gemini_file, vision_prompt], request_options={"timeout": 600})
         video_description = vision_response.text
         
-        # Script Writing
+        # Step 4: Script Writing
         writer_model = genai.GenerativeModel(writer_model_name)
         writer_prompt = f"""
         You are a professional Burmese Movie Recap Scriptwriter.
@@ -244,51 +300,57 @@ st.write("")
 tab1, tab2, tab3, tab4 = st.tabs(["🎬 Movie Recap", "🌍 Translator", "🎨 Thumbnail AI", "✍️ Script Rewriter"])
 
 # ==========================================
-# TAB 1: MOVIE RECAP GENERATOR (QUEUE-BASED SYSTEM)
+# TAB 1: MOVIE RECAP WITH GOOGLE DRIVE LINKS
 # ==========================================
 with tab1:
     st.write("")
     col_left, col_right = st.columns([1, 1], gap="medium")
 
     # Initialize session states
-    if 'video_queue' not in st.session_state:
-        st.session_state['video_queue'] = []
-    if 'processing_queue' not in st.session_state:
-        st.session_state['processing_queue'] = False
-    if 'current_processing_index' not in st.session_state:
-        st.session_state['current_processing_index'] = 0
+    if 'video_links_queue' not in st.session_state:
+        st.session_state['video_links_queue'] = []
+    if 'processing_links' not in st.session_state:
+        st.session_state['processing_links'] = False
+    if 'current_link_index' not in st.session_state:
+        st.session_state['current_link_index'] = 0
 
     with col_left:
         with st.container(border=True):
-            st.subheader("📂 Input Files")
-            st.info("📌 Maximum 10 videos • Add files to queue, they'll process one by one")
+            st.subheader("🔗 Google Drive Links")
+            st.info("📌 Paste Google Drive video links (Max 10) • One link per line")
             
-            uploaded_videos = st.file_uploader(
-                "Upload Movies (Max 10)", 
-                type=["mp4", "mkv", "mov"], 
-                accept_multiple_files=True,
-                key="video_uploader"
+            # Text area for multiple links
+            links_input = st.text_area(
+                "Video Links (One per line)",
+                height=200,
+                placeholder="https://drive.google.com/file/d/XXX/view\nhttps://drive.google.com/file/d/YYY/view\n...",
+                key="links_input"
             )
             
-            # Add to Queue Button
-            if st.button("➕ Add to Queue", use_container_width=True):
-                if not uploaded_videos:
-                    st.warning("Please select video files first!")
+            # Parse links button
+            if st.button("➕ Add Links to Queue", use_container_width=True):
+                if not links_input.strip():
+                    st.warning("Please paste video links!")
                 else:
-                    # Add files to queue
-                    for video in uploaded_videos:
-                        if len(st.session_state['video_queue']) >= 10:
-                            st.warning(f"⚠️ Queue is full! Maximum 10 videos. Skipping: {video.name}")
-                            break
-                        # Store video data
-                        st.session_state['video_queue'].append({
-                            'name': video.name,
-                            'bytes': video.getvalue(),
-                            'status': 'waiting',  # waiting, processing, completed, failed
+                    # Parse links
+                    raw_links = [link.strip() for link in links_input.split('\n') if link.strip()]
+                    
+                    if len(raw_links) > 10:
+                        st.warning(f"⚠️ Maximum 10 links allowed. Taking first 10 only.")
+                        raw_links = raw_links[:10]
+                    
+                    # Add to queue
+                    st.session_state['video_links_queue'] = []
+                    for idx, link in enumerate(raw_links):
+                        st.session_state['video_links_queue'].append({
+                            'name': f"Video_{idx + 1}",
+                            'url': link,
+                            'status': 'waiting',
                             'script': None,
                             'error': None
                         })
-                    st.success(f"✅ Added {min(len(uploaded_videos), 10)} file(s) to queue!")
+                    
+                    st.success(f"✅ Added {len(raw_links)} link(s) to queue!")
                     st.rerun()
             
             st.markdown("---")
@@ -306,19 +368,19 @@ with tab1:
             st.markdown("---")
             
             # Start Processing Button
-            if st.button("🚀 Start Processing Queue", use_container_width=True, disabled=len(st.session_state['video_queue']) == 0):
+            if st.button("🚀 Start Processing", use_container_width=True, disabled=len(st.session_state['video_links_queue']) == 0):
                 if not api_key:
                     st.error("Please enter API Key above.")
                 else:
-                    st.session_state['processing_queue'] = True
-                    st.session_state['current_processing_index'] = 0
+                    st.session_state['processing_links'] = True
+                    st.session_state['current_link_index'] = 0
                     st.rerun()
             
             # Clear Queue Button
-            if st.button("🗑️ Clear Queue", use_container_width=True, disabled=len(st.session_state['video_queue']) == 0):
-                st.session_state['video_queue'] = []
-                st.session_state['processing_queue'] = False
-                st.session_state['current_processing_index'] = 0
+            if st.button("🗑️ Clear Queue", use_container_width=True, disabled=len(st.session_state['video_links_queue']) == 0):
+                st.session_state['video_links_queue'] = []
+                st.session_state['processing_links'] = False
+                st.session_state['current_link_index'] = 0
                 st.success("Queue cleared!")
                 st.rerun()
 
@@ -326,13 +388,22 @@ with tab1:
         with st.container(border=True):
             st.subheader("📋 Processing Queue")
             
-            if len(st.session_state['video_queue']) == 0:
-                st.info("💡 Queue is empty. Add videos to start processing.")
+            if len(st.session_state['video_links_queue']) == 0:
+                st.info("💡 Queue is empty. Paste Google Drive links and add to queue.")
+                st.markdown("""
+                **How to use:**
+                1. Upload videos to Google Drive
+                2. Get sharing links (Anyone with link can view)
+                3. Paste links in the text box (one per line)
+                4. Click "Add Links to Queue"
+                5. Click "Start Processing"
+                6. Videos will process one by one automatically!
+                """)
             else:
                 # Show queue status
-                total = len(st.session_state['video_queue'])
-                completed = sum(1 for v in st.session_state['video_queue'] if v['status'] == 'completed')
-                failed = sum(1 for v in st.session_state['video_queue'] if v['status'] == 'failed')
+                total = len(st.session_state['video_links_queue'])
+                completed = sum(1 for v in st.session_state['video_links_queue'] if v['status'] == 'completed')
+                failed = sum(1 for v in st.session_state['video_links_queue'] if v['status'] == 'failed')
                 
                 st.markdown(f"**Total:** {total} | **Completed:** {completed} | **Failed:** {failed}")
                 st.progress(completed / total if total > 0 else 0)
@@ -340,7 +411,7 @@ with tab1:
                 st.markdown("---")
                 
                 # Display queue items
-                for idx, item in enumerate(st.session_state['video_queue']):
+                for idx, item in enumerate(st.session_state['video_links_queue']):
                     status_emoji = {
                         'waiting': '⏳',
                         'processing': '🔄',
@@ -359,7 +430,7 @@ with tab1:
                     
                     # Show download button for completed items
                     if item['status'] == 'completed' and item['script']:
-                        filename = f"{item['name'].rsplit('.', 1)[0]}_recap.txt"
+                        filename = f"{item['name']}_recap.txt"
                         st.download_button(
                             f"📥 Download Script #{idx + 1}",
                             item['script'],
@@ -372,33 +443,33 @@ with tab1:
                         st.error(f"Error: {item['error']}")
         
         # Process queue
-        if st.session_state['processing_queue']:
-            current_idx = st.session_state['current_processing_index']
+        if st.session_state['processing_links']:
+            current_idx = st.session_state['current_link_index']
             
-            if current_idx < len(st.session_state['video_queue']):
-                current_item = st.session_state['video_queue'][current_idx]
+            if current_idx < len(st.session_state['video_links_queue']):
+                current_item = st.session_state['video_links_queue'][current_idx]
                 
                 if current_item['status'] == 'waiting':
                     # Update status to processing
-                    st.session_state['video_queue'][current_idx]['status'] = 'processing'
+                    st.session_state['video_links_queue'][current_idx]['status'] = 'processing'
                     
                     with st.container(border=True):
                         st.markdown(f"### 🔄 Processing: {current_item['name']}")
                         
-                        progress_text = st.empty()
-                        
-                        # Step 1: Upload
-                        progress_text.info("📤 Uploading to Gemini...")
+                        status_placeholder = st.empty()
                         
                         # Get style text
                         style_text = st.session_state.get('style_text', "")
                         
+                        # Step 1: Download
+                        status_placeholder.info("📥 Downloading from Google Drive...")
+                        
                         # Step 2: Process
-                        progress_text.info("👀 AI is analyzing video...")
+                        status_placeholder.info("👀 AI is analyzing video...")
                         
                         # Process video
-                        script, error = process_single_video(
-                            current_item['bytes'],
+                        script, error = process_video_from_url(
+                            current_item['url'],
                             current_item['name'],
                             writer_model_name,
                             style_text
@@ -406,12 +477,12 @@ with tab1:
                         
                         if script:
                             # Success
-                            st.session_state['video_queue'][current_idx]['status'] = 'completed'
-                            st.session_state['video_queue'][current_idx]['script'] = script
-                            progress_text.success(f"✅ Completed: {current_item['name']}")
+                            st.session_state['video_links_queue'][current_idx]['status'] = 'completed'
+                            st.session_state['video_links_queue'][current_idx]['script'] = script
+                            status_placeholder.success(f"✅ Completed: {current_item['name']}")
                             
                             # Auto download
-                            filename = f"{current_item['name'].rsplit('.', 1)[0]}_recap.txt"
+                            filename = f"{current_item['name']}_recap.txt"
                             st.download_button(
                                 "📥 Download Now",
                                 script,
@@ -420,20 +491,20 @@ with tab1:
                             )
                         else:
                             # Failed
-                            st.session_state['video_queue'][current_idx]['status'] = 'failed'
-                            st.session_state['video_queue'][current_idx]['error'] = error
-                            progress_text.error(f"❌ Failed: {current_item['name']}")
+                            st.session_state['video_links_queue'][current_idx]['status'] = 'failed'
+                            st.session_state['video_links_queue'][current_idx]['error'] = error
+                            status_placeholder.error(f"❌ Failed: {current_item['name']}")
                         
                         # Move to next
-                        st.session_state['current_processing_index'] += 1
-                        time.sleep(1)
+                        st.session_state['current_link_index'] += 1
+                        time.sleep(2)
                         st.rerun()
             
             else:
                 # All done
                 st.success("🎉 All videos processed!")
                 st.balloons()
-                st.session_state['processing_queue'] = False
+                st.session_state['processing_links'] = False
 
 # ==========================================
 # TAB 2: UNIVERSAL TRANSLATOR
