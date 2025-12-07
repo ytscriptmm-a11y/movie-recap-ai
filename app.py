@@ -27,7 +27,7 @@ except ImportError:
 st.set_page_config(
     page_title="Ultimate AI Studio",
     page_icon="✨",
-    layout="wide",
+    layout="centered",  # Changed from wide to centered for narrower layout
     initial_sidebar_state="collapsed"
 )
 
@@ -41,7 +41,8 @@ def init_session_state():
         'run_translate': False,
         'run_rewrite': False,
         'style_text': "",
-        'api_configured': False
+        'api_configured': False,
+        'custom_prompt': ""
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -49,90 +50,253 @@ def init_session_state():
 
 init_session_state()
 
-# --- GLASSMORPHISM CSS ---
+# --- PROFESSIONAL DARK THEME CSS ---
 st.markdown("""
 <style>
+    /* Import Google Font */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Main App Background */
     .stApp {
-        background: linear-gradient(135deg, #24243e 0%, #302b63 50%, #0f0c29 100%);
+        background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
         background-attachment: fixed;
-        color: #ffffff;
-        font-family: 'Inter', sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
+    
+    /* Hide Streamlit Header */
     header {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Main Container - Narrower */
+    .main .block-container {
+        max-width: 1000px !important;
+        padding: 2rem 1rem !important;
+    }
+    
+    /* Card Styling */
     div[data-testid="stVerticalBlockBorderWrapper"] > div {
-        background: rgba(255, 255, 255, 0.05) !important;
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        background: linear-gradient(145deg, rgba(30, 30, 50, 0.9), rgba(20, 20, 35, 0.95)) !important;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        padding: 1.5rem;
+    }
+    
+    /* Input Fields */
+    .stTextInput input, .stTextArea textarea {
+        background: rgba(255, 255, 255, 0.03) !important;
+        color: #ffffff !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 20px !important;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        padding: 20px;
+        border-radius: 10px !important;
+        padding: 12px 16px !important;
+        font-size: 14px !important;
+        transition: all 0.3s ease;
     }
-    .stTextInput input, .stSelectbox div[data-baseweb="select"] > div, .stTextArea textarea {
-        background-color: rgba(255, 255, 255, 0.1) !important;
+    
+    .stTextInput input:focus, .stTextArea textarea:focus {
+        border-color: rgba(139, 92, 246, 0.5) !important;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1) !important;
+    }
+    
+    /* Select Box */
+    .stSelectbox div[data-baseweb="select"] > div {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 10px !important;
         color: white !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        border-radius: 12px !important;
     }
-    .stButton>button {
-        background: linear-gradient(to right, #8E2DE2, #4A00E0);
+    
+    /* Buttons */
+    .stButton > button {
+        background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);
         color: white;
         border: none;
-        border-radius: 12px;
-        padding: 0.6rem 1.2rem;
-        font-weight: bold;
-        width: 100%;
-    }
-    .stTabs [data-baseweb="tab-list"] { gap: 15px; background-color: transparent; }
-    .stTabs [data-baseweb="tab"] {
-        background-color: rgba(255,255,255,0.05);
-        border-radius: 12px;
-        color: #ddd;
-        border: 1px solid rgba(255,255,255,0.1);
-        padding: 10px 20px;
-    }
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(to right, #8E2DE2, #4A00E0);
-        color: white;
-        border: none;
-    }
-    [data-testid="stFileUploader"] {
-        background-color: rgba(255, 255, 255, 0.05);
-        border-radius: 15px;
-        padding: 10px;
-        border: 1px dashed rgba(255, 255, 255, 0.3);
-    }
-    h1, h2, h3 { color: white !important; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-    p, label { color: #e0e0e0 !important; }
-    .queue-item {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 10px;
-        padding: 10px;
-        margin: 5px 0;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        font-size: 14px;
+        letter-spacing: 0.3px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
     }
-    .queue-item.processing {
-        background: rgba(142, 45, 226, 0.2);
-        border: 2px solid rgba(142, 45, 226, 0.5);
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
     }
-    .queue-item.completed {
-        background: rgba(76, 175, 80, 0.2);
-        border: 1px solid rgba(76, 175, 80, 0.5);
+    
+    /* Download Button */
+    .stDownloadButton > button {
+        background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
     }
-    .method-toggle {
-        background: rgba(255, 255, 255, 0.05);
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background: rgba(0, 0, 0, 0.2);
+        padding: 8px;
         border-radius: 12px;
-        padding: 15px;
-        margin: 10px 0;
     }
-    .status-box {
-        padding: 10px;
+    
+    .stTabs [data-baseweb="tab"] {
+        background: transparent;
         border-radius: 8px;
-        margin: 5px 0;
+        color: rgba(255, 255, 255, 0.6);
+        border: none;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
     }
-    .status-success { background: rgba(76, 175, 80, 0.2); border: 1px solid rgba(76, 175, 80, 0.5); }
-    .status-error { background: rgba(244, 67, 54, 0.2); border: 1px solid rgba(244, 67, 54, 0.5); }
-    .status-warning { background: rgba(255, 152, 0, 0.2); border: 1px solid rgba(255, 152, 0, 0.5); }
+    
+    .stTabs [data-baseweb="tab"]:hover {
+        color: rgba(255, 255, 255, 0.9);
+        background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%) !important;
+        color: white !important;
+    }
+    
+    /* File Uploader */
+    [data-testid="stFileUploader"] {
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 12px;
+        padding: 16px;
+        border: 2px dashed rgba(139, 92, 246, 0.3);
+        transition: all 0.3s ease;
+    }
+    
+    [data-testid="stFileUploader"]:hover {
+        border-color: rgba(139, 92, 246, 0.5);
+        background: rgba(139, 92, 246, 0.05);
+    }
+    
+    /* Typography */
+    h1 {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        font-size: 2rem !important;
+        letter-spacing: -0.5px;
+    }
+    
+    h2, h3 {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+    }
+    
+    p, label, .stMarkdown {
+        color: rgba(255, 255, 255, 0.8) !important;
+    }
+    
+    /* Queue Items */
+    .queue-item {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin: 8px 0;
+        transition: all 0.3s ease;
+    }
+    
+    .queue-item:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .queue-item.processing {
+        background: rgba(139, 92, 246, 0.1);
+        border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+    
+    .queue-item.completed {
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    
+    .queue-item.failed {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    
+    /* Info/Success/Warning/Error boxes */
+    .stAlert {
+        border-radius: 10px !important;
+    }
+    
+    /* Progress Bar */
+    .stProgress > div > div {
+        background: linear-gradient(90deg, #8B5CF6, #6366F1) !important;
+        border-radius: 10px;
+    }
+    
+    /* Radio Buttons */
+    .stRadio > div {
+        gap: 12px;
+    }
+    
+    /* Metric */
+    [data-testid="stMetricValue"] {
+        color: #8B5CF6 !important;
+        font-weight: 700 !important;
+    }
+    
+    /* Expander */
+    .streamlit-expanderHeader {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border-radius: 10px !important;
+    }
+    
+    /* Custom Title Styling */
+    .main-title {
+        text-align: center;
+        padding: 1rem 0 0.5rem 0;
+    }
+    
+    .main-title h1 {
+        background: linear-gradient(135deg, #8B5CF6, #EC4899);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 2.5rem !important;
+        margin-bottom: 0.25rem;
+    }
+    
+    .main-title p {
+        color: rgba(255, 255, 255, 0.5) !important;
+        font-size: 0.95rem;
+    }
+    
+    /* Divider */
+    hr {
+        border: none;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        margin: 1.5rem 0;
+    }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: rgba(139, 92, 246, 0.5);
+        border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(139, 92, 246, 0.7);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -348,7 +512,7 @@ def call_gemini_api(model, content, timeout=600):
     
     return None
 
-def process_video_from_path(file_path, video_name, writer_model_name, style_text="", status_placeholder=None):
+def process_video_from_path(file_path, video_name, writer_model_name, style_text="", custom_prompt="", status_placeholder=None):
     """Process video from local file path with progress updates"""
     gemini_file = None
     try:
@@ -382,6 +546,11 @@ def process_video_from_path(file_path, video_name, writer_model_name, style_text
         if status_placeholder:
             status_placeholder.info("✍️ Step 3/3: Writing Burmese recap script...")
         
+        # Build custom instructions section
+        custom_instructions = ""
+        if custom_prompt:
+            custom_instructions = f"\n\n**CUSTOM INSTRUCTIONS FROM USER:**\n{custom_prompt}\n"
+        
         writer_model = genai.GenerativeModel(writer_model_name)
         writer_prompt = f"""
         You are a professional Burmese Movie Recap Scriptwriter.
@@ -391,6 +560,7 @@ def process_video_from_path(file_path, video_name, writer_model_name, style_text
         {video_description}
         
         {style_text}
+        {custom_instructions}
         
         **INSTRUCTIONS:**
         1. Write in 100% Burmese.
@@ -419,7 +589,7 @@ def process_video_from_path(file_path, video_name, writer_model_name, style_text
                 pass
         gc.collect()
 
-def process_video_from_url(url, video_name, writer_model_name, style_text="", status_placeholder=None):
+def process_video_from_url(url, video_name, writer_model_name, style_text="", custom_prompt="", status_placeholder=None):
     """Process video from URL with progress updates"""
     tmp_path = None
     try:
@@ -441,7 +611,7 @@ def process_video_from_url(url, video_name, writer_model_name, style_text="", st
         if status_placeholder:
             status_placeholder.success("✅ Download complete!")
         
-        script, error = process_video_from_path(tmp_path, video_name, writer_model_name, style_text, status_placeholder)
+        script, error = process_video_from_path(tmp_path, video_name, writer_model_name, style_text, custom_prompt, status_placeholder)
         return script, error
         
     except Exception as e:
@@ -452,12 +622,12 @@ def process_video_from_url(url, video_name, writer_model_name, style_text="", st
         gc.collect()
 
 # --- MAIN TITLE ---
-c1, c2 = st.columns([0.1, 0.9])
-with c1: 
-    st.markdown("<h1>✨</h1>", unsafe_allow_html=True)
-with c2: 
-    st.markdown("<h1>Ultimate AI Studio</h1>", unsafe_allow_html=True)
-st.markdown("<p style='opacity: 0.7; margin-top: -15px;'>Your All-in-One Creative Dashboard</p>", unsafe_allow_html=True)
+st.markdown("""
+<div class="main-title">
+    <h1>✨ Ultimate AI Studio</h1>
+    <p>Your All-in-One Creative Dashboard</p>
+</div>
+""", unsafe_allow_html=True)
 
 # --- LIBRARY STATUS CHECK ---
 if not PDF_AVAILABLE or not DOCX_AVAILABLE:
@@ -466,40 +636,34 @@ if not PDF_AVAILABLE or not DOCX_AVAILABLE:
         missing.append("PyPDF2")
     if not DOCX_AVAILABLE:
         missing.append("python-docx")
-    st.warning(f"⚠️ Optional libraries missing: {', '.join(missing)}. PDF/DOCX reading may be limited. Add them to requirements.txt for full functionality.")
+    st.warning(f"⚠️ Optional libraries missing: {', '.join(missing)}. Add them to requirements.txt for full functionality.")
 
 # --- TOP CONTROL BAR ---
 with st.container(border=True):
-    col_api, col_model, col_status = st.columns([3, 2, 1])
+    col_api, col_model = st.columns([2, 1])
     
     with col_api:
-        api_key = st.text_input("🔑 API Key", type="password", placeholder="Paste Google API Key here...")
+        api_key = st.text_input("🔑 Google API Key", type="password", placeholder="Paste your API key here...", label_visibility="collapsed")
         
     with col_model:
         writer_model_name = st.selectbox(
-            "🧠 Writer Model",
+            "Writer Model",
             [
                 "gemini-2.0-flash-exp", 
                 "gemini-1.5-pro", 
-                "models/gemini-3-pro-image-preview",
-                "gemini-1.5-flash", 
                 "models/gemini-2.5-pro",
-                "models/gemini-3-pro-preview",
+                "gemini-1.5-flash", 
                 "models/gemini-2.5-flash"        
-            ]
+            ],
+            label_visibility="collapsed"
         )
-        
-    with col_status:
-        st.write("") 
-        st.write("") 
-        if api_key:
-            try:
-                genai.configure(api_key=api_key)
-                st.markdown("✅ **Active**")
-            except Exception as e:
-                st.markdown("❌ **Error**")
-        else:
-            st.markdown("⚠️ **Offline**")
+    
+    # Configure API
+    if api_key:
+        try:
+            genai.configure(api_key=api_key)
+        except Exception:
+            pass
 
 # --- TABS NAVIGATION ---
 st.write("") 
@@ -627,7 +791,22 @@ with tab1:
             
             st.markdown("---")
             st.markdown("**⚙️ Settings**")
-            style_file = st.file_uploader("Writing Style (txt, pdf, docx)", type=["txt", "pdf", "docx"], key="style_uploader")
+            
+            # Custom Prompt Input
+            with st.expander("📝 Custom Instructions (Optional)", expanded=False):
+                custom_prompt = st.text_area(
+                    "Add your custom instructions here:",
+                    value=st.session_state.get('custom_prompt', ''),
+                    height=100,
+                    placeholder="Example: Focus on romantic scenes, Include character names, Make it more dramatic...",
+                    key="custom_prompt_input"
+                )
+                if custom_prompt:
+                    st.session_state['custom_prompt'] = custom_prompt
+                    st.caption("✅ Custom instructions will be added to the AI prompt")
+            
+            # Style File Upload
+            style_file = st.file_uploader("📄 Writing Style Reference (Optional)", type=["txt", "pdf", "docx"], key="style_uploader")
             
             # Read style file
             if style_file:
@@ -635,7 +814,7 @@ with tab1:
                 if extracted_style:
                     style_text = f"\n\n**WRITING STYLE REFERENCE:**\nPlease mimic the tone and style of the following text:\n---\n{extracted_style[:5000]}\n---\n"
                     st.session_state['style_text'] = style_text
-                    st.success(f"✅ Style loaded from: {style_file.name}")
+                    st.caption(f"✅ Style loaded: {style_file.name}")
             
             st.markdown("---")
             
@@ -754,6 +933,7 @@ with tab1:
                         
                         status_placeholder = st.empty()
                         style_text = st.session_state.get('style_text', "")
+                        custom_prompt = st.session_state.get('custom_prompt', "")
                         
                         # Process based on source type
                         if current_item['source_type'] == 'file':
@@ -762,6 +942,7 @@ with tab1:
                                 current_item['name'],
                                 writer_model_name,
                                 style_text,
+                                custom_prompt,
                                 status_placeholder
                             )
                             
@@ -774,6 +955,7 @@ with tab1:
                                 current_item['name'],
                                 writer_model_name,
                                 style_text,
+                                custom_prompt,
                                 status_placeholder
                             )
                         
@@ -1213,8 +1395,9 @@ with tab4:
 
 # --- FOOTER ---
 st.markdown("""
-<div style='text-align: center; margin-top: 50px; opacity: 0.5; font-size: 0.8rem;'>
-    Glassmorphism Edition • Powered by Gemini<br>
-    <small>v2.0 - Improved Error Handling & Rate Limiting</small>
+<div style='text-align: center; margin-top: 3rem; padding: 1.5rem 0; border-top: 1px solid rgba(255,255,255,0.05);'>
+    <p style='color: rgba(255,255,255,0.4) !important; font-size: 0.85rem; margin: 0;'>
+        ✨ Ultimate AI Studio • Powered by Google Gemini
+    </p>
 </div>
 """, unsafe_allow_html=True)
