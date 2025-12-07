@@ -886,6 +886,19 @@ with tab3:
             st.subheader("🎨 AI Thumbnail Generator")
             st.markdown("<p style='opacity: 0.7;'>Gemini API နဲ့ တိုက်ရိုက် Image Generate လုပ်ပါ</p>", unsafe_allow_html=True)
             
+            # Reference image upload (MOVED TO TOP)
+            st.markdown("**🖼️ Reference Image (Optional):**")
+            ref_image = st.file_uploader(
+                "Upload reference image for style guidance",
+                type=["png", "jpg", "jpeg", "webp"],
+                key="thumb_ref_image"
+            )
+            
+            if ref_image:
+                st.image(ref_image, caption="Reference Image", use_container_width=True)
+            
+            st.markdown("---")
+            
             # Prompt Templates
             st.markdown("**📝 Quick Templates:**")
             prompt_templates = {
@@ -949,8 +962,8 @@ with tab3:
             image_model_choice = st.radio(
                 "Model ရွေးပါ:",
                 [
-                    "🚀 Gemini 2.0 Flash (Fast)",
-                    "✨ Gemini 3 Pro (Myanmar Text Support)"
+                    "✨ Gemini 2.0 Flash Image Gen",
+                    "🎯 Gemini 3 Pro (Myanmar Text Support)"
                 ],
                 index=1,
                 key="thumb_model_choice",
@@ -961,24 +974,12 @@ with tab3:
             if "Gemini 3 Pro" in image_model_choice:
                 st.info("💡 Gemini 3 Pro: မြန်မာဘာသာ caption နဲ့ text overlay ထည့်ရေးပေးနိုင်တယ်။")
             else:
-                st.info("⚡ Gemini 2.0 Flash: ပိုမြန်တယ်၊ English text အတွက် သင့်တော်တယ်။")
+                st.info("⚡ Gemini 2.0 Flash: Fast image generation, English text အတွက် သင့်တော်တယ်။")
             
             st.markdown("---")
             
             # Generate button
             generate_clicked = st.button("🚀 Generate Thumbnail", use_container_width=True)
-            
-            # Reference image upload (optional)
-            st.markdown("---")
-            st.markdown("**🖼️ Reference Image (Optional):**")
-            ref_image = st.file_uploader(
-                "Upload reference image for style guidance",
-                type=["png", "jpg", "jpeg", "webp"],
-                key="thumb_ref_image"
-            )
-            
-            if ref_image:
-                st.image(ref_image, caption="Reference Image", use_container_width=True)
     
     with col_thumb_right:
         with st.container(border=True):
@@ -1012,9 +1013,11 @@ with tab3:
                     if "Gemini 3 Pro" in image_model_choice:
                         selected_image_model = "models/gemini-3-pro-image-preview"
                         model_name_display = "Gemini 3 Pro"
+                        use_response_modalities = False
                     else:
-                        selected_image_model = "models/gemini-2.0-flash-exp-image-generation"
+                        selected_image_model = "gemini-2.0-flash-preview-image-generation"
                         model_name_display = "Gemini 2.0 Flash"
+                        use_response_modalities = False  # Don't use response_modalities for either
                     
                     st.info(f"🎨 Using {model_name_display}...")
                     st.markdown(f"**Prompt:** {final_prompt[:200]}...")
@@ -1033,47 +1036,22 @@ with tab3:
                                 status_text.info(f"🔄 Generating image {i+1}/{num_images}... Please wait...")
                                 progress_bar.progress((i) / num_images)
                                 
-                                # Different generation config based on model
-                                if "Gemini 3 Pro" in image_model_choice:
-                                    # Gemini 3 Pro - no response_modalities needed
-                                    if ref_image:
-                                        ref_image.seek(0)
-                                        ref_img = Image.open(ref_image)
-                                        response = image_model.generate_content(
-                                            [
-                                                f"Generate an image: Using this reference image as style guide, {final_prompt}",
-                                                ref_img
-                                            ],
-                                            request_options={"timeout": 180}
-                                        )
-                                    else:
-                                        response = image_model.generate_content(
-                                            f"Generate an image: {final_prompt}",
-                                            request_options={"timeout": 180}
-                                        )
+                                # Build the generation prompt
+                                generation_prompt = f"Generate an image: {final_prompt}"
+                                
+                                # Generate image - same approach for both models
+                                if ref_image:
+                                    ref_image.seek(0)
+                                    ref_img = Image.open(ref_image)
+                                    response = image_model.generate_content(
+                                        [generation_prompt, ref_img],
+                                        request_options={"timeout": 180}
+                                    )
                                 else:
-                                    # Gemini 2.0 Flash - uses response_modalities
-                                    if ref_image:
-                                        ref_image.seek(0)
-                                        ref_img = Image.open(ref_image)
-                                        response = image_model.generate_content(
-                                            [
-                                                f"Using this reference image as style guide, {final_prompt}",
-                                                ref_img
-                                            ],
-                                            generation_config=genai.GenerationConfig(
-                                                response_modalities=["image", "text"]
-                                            ),
-                                            request_options={"timeout": 180}
-                                        )
-                                    else:
-                                        response = image_model.generate_content(
-                                            final_prompt,
-                                            generation_config=genai.GenerationConfig(
-                                                response_modalities=["image", "text"]
-                                            ),
-                                            request_options={"timeout": 180}
-                                        )
+                                    response = image_model.generate_content(
+                                        generation_prompt,
+                                        request_options={"timeout": 180}
+                                    )
                                 
                                 # Extract image from response
                                 image_found = False
