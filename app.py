@@ -151,7 +151,7 @@ st.markdown("""
     
     /* Main Container - Max Width 2000px */
     .main .block-container {
-        max-width: 2000px !important;
+        max-width: 1800px !important;
         padding: 2rem 2rem !important;
     }
     
@@ -1582,3 +1582,4 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
+
