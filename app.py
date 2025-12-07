@@ -876,8 +876,8 @@ with tab3:
     # Initialize thumbnail session states
     if 'generated_images' not in st.session_state:
         st.session_state['generated_images'] = []
-    if 'thumbnail_generating' not in st.session_state:
-        st.session_state['thumbnail_generating'] = False
+    if 'thumb_prompt_to_generate' not in st.session_state:
+        st.session_state['thumb_prompt_to_generate'] = None
     
     col_thumb_left, col_thumb_right = st.columns([1, 1], gap="medium")
     
@@ -922,7 +922,7 @@ with tab3:
             with col_opt1:
                 add_text = st.text_input(
                     "Text on Image (Optional):",
-                    placeholder="e.g., EP.1, PART 2",
+                    placeholder="e.g., EP.1, PART 2, မြန်မာစာ",
                     key="thumb_text"
                 )
             
@@ -959,22 +959,14 @@ with tab3:
             
             # Show model info
             if "Gemini 3 Pro" in image_model_choice:
-                st.info("💡 Gemini 3 Pro: မြန်မာဘာသာ caption နဲ့ text overlay ထည့်ရေးပေးနိုင်တယ်။ အရည်အသွေးပိုကောင်းတယ်။")
+                st.info("💡 Gemini 3 Pro: မြန်မာဘာသာ caption နဲ့ text overlay ထည့်ရေးပေးနိုင်တယ်။")
             else:
                 st.info("⚡ Gemini 2.0 Flash: ပိုမြန်တယ်၊ English text အတွက် သင့်တော်တယ်။")
             
             st.markdown("---")
             
             # Generate button
-            if st.button("🚀 Generate Thumbnail", use_container_width=True, disabled=st.session_state['thumbnail_generating']):
-                if not api_key:
-                    st.error("⚠️ Please enter API Key first!")
-                elif not user_prompt.strip():
-                    st.warning("⚠️ Please enter a prompt!")
-                else:
-                    st.session_state['thumbnail_generating'] = True
-                    st.session_state['generated_images'] = []
-                    st.rerun()
+            generate_clicked = st.button("🚀 Generate Thumbnail", use_container_width=True)
             
             # Reference image upload (optional)
             st.markdown("---")
@@ -992,9 +984,16 @@ with tab3:
         with st.container(border=True):
             st.subheader("🖼️ Generated Images")
             
-            # Processing
-            if st.session_state['thumbnail_generating']:
-                try:
+            # Process generation when button is clicked
+            if generate_clicked:
+                if not api_key:
+                    st.error("⚠️ Please enter API Key first!")
+                elif not user_prompt.strip():
+                    st.warning("⚠️ Please enter a prompt!")
+                else:
+                    # Clear previous images
+                    st.session_state['generated_images'] = []
+                    
                     # Build final prompt
                     final_prompt = user_prompt.strip()
                     
@@ -1009,29 +1008,35 @@ with tab3:
                     # Always add quality instruction
                     final_prompt += ", high quality, detailed, sharp focus"
                     
-                    with st.spinner(f"🎨 Generating {num_images} image(s)... This may take a moment..."):
-                        
-                        # Select model based on user choice
-                        if "Gemini 3 Pro" in image_model_choice:
-                            selected_image_model = "models/gemini-3-pro-image-preview"
-                            st.info("🎨 Using Gemini 3 Pro (Myanmar Text Support)...")
-                        else:
-                            selected_image_model = "models/gemini-2.0-flash-exp-image-generation"
-                            st.info("⚡ Using Gemini 2.0 Flash (Fast)...")
-                        
+                    # Select model based on user choice
+                    if "Gemini 3 Pro" in image_model_choice:
+                        selected_image_model = "models/gemini-3-pro-image-preview"
+                        model_name_display = "Gemini 3 Pro"
+                    else:
+                        selected_image_model = "models/gemini-2.0-flash-exp-image-generation"
+                        model_name_display = "Gemini 2.0 Flash"
+                    
+                    st.info(f"🎨 Using {model_name_display}...")
+                    st.markdown(f"**Prompt:** {final_prompt[:200]}...")
+                    
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    generated_images = []
+                    
+                    try:
                         # Initialize Gemini Image Model
                         image_model = genai.GenerativeModel(selected_image_model)
                         
-                        generated_images = []
-                        
                         for i in range(num_images):
                             try:
-                                if num_images > 1:
-                                    st.info(f"🔄 Generating image {i+1}/{num_images}...")
+                                status_text.info(f"🔄 Generating image {i+1}/{num_images}... Please wait...")
+                                progress_bar.progress((i) / num_images)
                                 
-                                # Generate with reference image if provided
+                                # Generate image
                                 if ref_image:
                                     # Read reference image
+                                    ref_image.seek(0)  # Reset file pointer
                                     ref_img = Image.open(ref_image)
                                     
                                     response = image_model.generate_content(
@@ -1042,7 +1047,7 @@ with tab3:
                                         generation_config=genai.GenerationConfig(
                                             response_modalities=["image", "text"]
                                         ),
-                                        request_options={"timeout": 120}
+                                        request_options={"timeout": 180}
                                     )
                                 else:
                                     response = image_model.generate_content(
@@ -1050,10 +1055,11 @@ with tab3:
                                         generation_config=genai.GenerationConfig(
                                             response_modalities=["image", "text"]
                                         ),
-                                        request_options={"timeout": 120}
+                                        request_options={"timeout": 180}
                                     )
                                 
                                 # Extract image from response
+                                image_found = False
                                 if response.candidates:
                                     for part in response.candidates[0].content.parts:
                                         if hasattr(part, 'inline_data') and part.inline_data:
@@ -1063,37 +1069,43 @@ with tab3:
                                                 'mime_type': part.inline_data.mime_type,
                                                 'index': i + 1
                                             })
+                                            image_found = True
+                                            status_text.success(f"✅ Image {i+1} generated!")
                                             break
+                                
+                                if not image_found:
+                                    status_text.warning(f"⚠️ Image {i+1}: No image in response. Model may have returned text only.")
                                 
                                 # Small delay between generations
                                 if i < num_images - 1:
-                                    time.sleep(1)
+                                    time.sleep(2)
                                     
                             except Exception as e:
-                                st.warning(f"⚠️ Image {i+1} generation failed: {str(e)[:100]}")
+                                error_msg = str(e)
+                                status_text.error(f"⚠️ Image {i+1} failed: {error_msg[:150]}")
+                                st.error(f"Full error: {error_msg}")
                                 continue
                         
+                        progress_bar.progress(1.0)
+                        
+                        # Save to session state
                         st.session_state['generated_images'] = generated_images
                         
                         if generated_images:
-                            st.success(f"✅ Successfully generated {len(generated_images)} image(s)!")
+                            status_text.success(f"🎉 Done! Generated {len(generated_images)}/{num_images} image(s)")
                         else:
-                            st.error("❌ No images were generated. Please try a different prompt.")
-                
-                except Exception as e:
-                    st.error(f"❌ Generation Error: {e}")
-                
-                finally:
-                    st.session_state['thumbnail_generating'] = False
-                    st.rerun()
+                            status_text.error("❌ No images were generated. Try a different prompt or check your API key.")
+                    
+                    except Exception as e:
+                        st.error(f"❌ Generation Error: {e}")
+                        progress_bar.empty()
             
             # Display generated images
             if st.session_state['generated_images']:
+                st.markdown("---")
                 for idx, img_data in enumerate(st.session_state['generated_images']):
                     st.markdown(f"**Image {img_data['index']}:**")
                     
-                    # Convert to displayable image
-                    import base64
                     image_bytes = img_data['data']
                     
                     # Display image
@@ -1106,24 +1118,24 @@ with tab3:
                         image_bytes,
                         file_name=f"thumbnail_{idx+1}.{file_ext}",
                         mime=img_data.get('mime_type', 'image/png'),
-                        key=f"dl_thumb_{idx}"
+                        key=f"dl_thumb_{idx}_{time.time()}"
                     )
                     
                     st.markdown("---")
                 
                 # Clear button
-                if st.button("🗑️ Clear All Images", use_container_width=True):
+                if st.button("🗑️ Clear All Images", use_container_width=True, key="clear_thumb"):
                     st.session_state['generated_images'] = []
                     st.rerun()
             
-            else:
+            elif not generate_clicked:
                 st.info("💡 Enter a prompt and click 'Generate Thumbnail' to create images.")
                 st.markdown("""
                 **Tips for better results:**
                 - Be specific about colors, style, and composition
                 - Mention "YouTube thumbnail" or "1280x720" for proper sizing
                 - Use style modifiers like "cinematic", "dramatic", "professional"
-                - Add text overlay using the text input field
+                - Add text overlay using the text input field (မြန်မာစာ supported with Gemini 3 Pro)
                 - Upload a reference image for style guidance
                 """)
                 
