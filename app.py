@@ -78,6 +78,13 @@ st.markdown("""
     }
     h1, h2, h3 { color: white !important; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
     p, label { color: #e0e0e0 !important; }
+    .processing-box {
+        background: rgba(142, 45, 226, 0.1);
+        border: 2px solid rgba(142, 45, 226, 0.3);
+        border-radius: 15px;
+        padding: 15px;
+        margin: 10px 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -118,6 +125,21 @@ def read_file_content(uploaded_file):
     except Exception as e:
         st.error(f"Error reading file: {e}")
         return None
+
+# --- AUTO DOWNLOAD FUNCTION ---
+def trigger_download(content, filename):
+    """Triggers automatic download using JavaScript"""
+    import base64
+    b64 = base64.b64encode(content.encode()).decode()
+    download_js = f"""
+    <script>
+    var link = document.createElement('a');
+    link.href = 'data:text/plain;base64,{b64}';
+    link.download = '{filename}';
+    link.click();
+    </script>
+    """
+    st.components.v1.html(download_js, height=0)
 
 # --- MAIN TITLE ---
 c1, c2 = st.columns([0.1, 0.9])
@@ -160,7 +182,7 @@ st.write("")
 tab1, tab2, tab3, tab4 = st.tabs(["🎬 Movie Recap", "🌍 Translator", "🎨 Thumbnail AI", "✍️ Script Rewriter"])
 
 # ==========================================
-# TAB 1: MOVIE RECAP GENERATOR (UPDATED STYLE INPUT)
+# TAB 1: MOVIE RECAP GENERATOR (SEQUENTIAL PROCESSING - MAX 10 FILES)
 # ==========================================
 with tab1:
     st.write("")
@@ -169,55 +191,95 @@ with tab1:
     with col_left:
         with st.container(border=True):
             st.subheader("📂 Input Files")
-            uploaded_videos = st.file_uploader("Upload Movies", type=["mp4", "mkv", "mov"], accept_multiple_files=True)
+            st.info("📌 Maximum 10 videos • Files will be processed one by one automatically")
+            
+            uploaded_videos = st.file_uploader(
+                "Upload Movies (Max 10)", 
+                type=["mp4", "mkv", "mov"], 
+                accept_multiple_files=True,
+                key="video_uploader"
+            )
+            
+            # Display file count
+            if uploaded_videos:
+                file_count = len(uploaded_videos)
+                if file_count > 10:
+                    st.error(f"⚠️ Too many files! You uploaded {file_count} files. Please select maximum 10 files.")
+                    uploaded_videos = uploaded_videos[:10]  # Limit to 10
+                else:
+                    st.success(f"✅ {file_count} file(s) ready for processing")
             
             st.markdown("---")
             st.markdown("**⚙️ Settings**")
-            # Updated to accept PDF/DOCX
             style_file = st.file_uploader("Writing Style (txt, pdf, docx)", type=["txt", "pdf", "docx"])
             
-            if st.button("🚀 Generate Scripts", use_container_width=True):
+            if st.button("🚀 Start Sequential Processing", use_container_width=True):
                 if not api_key:
                     st.error("Please enter API Key above.")
                 elif not uploaded_videos:
                     st.warning("Please upload video files.")
+                elif len(uploaded_videos) > 10:
+                    st.error("Maximum 10 files allowed!")
                 else:
                     st.session_state['processing_recap'] = True
+                    st.session_state['current_file_index'] = 0
+                    st.rerun()
 
     with col_right:
-        if st.session_state.get('processing_recap'):
-            progress_bar = st.progress(0)
-            status_box = st.empty()
+        # Initialize session state
+        if 'processing_recap' not in st.session_state:
+            st.session_state['processing_recap'] = False
+        if 'current_file_index' not in st.session_state:
+            st.session_state['current_file_index'] = 0
             
-            # Updated Style Logic
-            style_text = ""
-            if style_file:
-                with st.spinner("📖 Reading Style File..."):
-                    extracted_style = read_file_content(style_file)
-                    if extracted_style:
-                        # Limit style text to avoid token overflow if file is huge
-                        style_text = f"\n\n**WRITING STYLE REFERENCE:**\nPlease mimic the tone and style of the following text:\n---\n{extracted_style[:5000]}\n---\n"
-                        st.info("✅ Style Loaded Successfully!")
-                    else:
-                        st.warning("⚠️ Could not read style file. Proceeding with default style.")
-
-            total_files = len(uploaded_videos)
+        if st.session_state.get('processing_recap') and uploaded_videos:
+            current_index = st.session_state['current_file_index']
+            total_files = min(len(uploaded_videos), 10)  # Ensure max 10
             
-            for i, video_file in enumerate(uploaded_videos):
-                status_box.markdown(f"**⏳ Processing ({i+1}/{total_files}):** `{video_file.name}`...")
+            # Overall progress
+            st.markdown(f"### 📊 Progress: {current_index}/{total_files} files completed")
+            overall_progress = st.progress(current_index / total_files if total_files > 0 else 0)
+            
+            # Process current file
+            if current_index < total_files:
+                video_file = uploaded_videos[current_index]
                 
+                st.markdown(f"""
+                <div class='processing-box'>
+                    <h4>⏳ Processing File {current_index + 1}/{total_files}</h4>
+                    <p style='font-size: 1.1rem;'><strong>{video_file.name}</strong></p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Read style file once
+                style_text = ""
+                if style_file and current_index == 0:  # Only read once
+                    with st.spinner("📖 Reading Style File..."):
+                        extracted_style = read_file_content(style_file)
+                        if extracted_style:
+                            style_text = f"\n\n**WRITING STYLE REFERENCE:**\nPlease mimic the tone and style of the following text:\n---\n{extracted_style[:5000]}\n---\n"
+                            st.session_state['style_text'] = style_text
+                            st.info("✅ Style Loaded Successfully!")
+                        else:
+                            st.warning("⚠️ Could not read style file. Proceeding with default style.")
+                elif 'style_text' in st.session_state:
+                    style_text = st.session_state['style_text']
+                
+                # Processing container
                 with st.container(border=True):
-                    st.markdown(f"**✅ Result: {video_file.name}**")
                     tmp_path = None
                     try:
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{video_file.name.split('.')[-1]}") as tmp:
-                            tmp.write(video_file.getvalue())
-                            tmp_path = tmp.name
-
-                        gemini_file = upload_to_gemini(tmp_path)
+                        # Step 1: Upload video
+                        with st.spinner(f"📤 Uploading {video_file.name}..."):
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{video_file.name.split('.')[-1]}") as tmp:
+                                tmp.write(video_file.getvalue())
+                                tmp_path = tmp.name
+                            
+                            gemini_file = upload_to_gemini(tmp_path)
                         
                         if gemini_file:
-                            st.caption("👀 AI (Flash) is watching...")
+                            # Step 2: AI Vision Analysis
+                            st.info("👀 AI Vision is analyzing the video...")
                             vision_model = genai.GenerativeModel("models/gemini-2.5-pro")
                             
                             vision_prompt = """
@@ -229,8 +291,10 @@ with tab1:
                             
                             vision_response = vision_model.generate_content([gemini_file, vision_prompt], request_options={"timeout": 600})
                             video_description = vision_response.text
+                            st.success("✅ Video analysis complete!")
                             
-                            st.caption(f"✍️ AI ({writer_model_name}) is writing...")
+                            # Step 3: Script Writing
+                            st.info(f"✍️ AI ({writer_model_name}) is writing the script...")
                             writer_model = genai.GenerativeModel(writer_model_name)
                             
                             writer_prompt = f"""
@@ -252,29 +316,79 @@ with tab1:
                             """
                             
                             final_response = writer_model.generate_content(writer_prompt)
+                            final_script = final_response.text
                             
-                            st.text_area("Final Script", final_response.text, height=200, key=f"rec_{i}")
-                            st.download_button("📥 Download Script", final_response.text, file_name=f"{video_file.name}_recap.txt", key=f"btn_{i}")
+                            st.success("✅ Script generated successfully!")
                             
-                            try: genai.delete_file(gemini_file.name)
-                            except: pass
-                                
+                            # Step 4: Auto Download
+                            filename = f"{video_file.name.rsplit('.', 1)[0]}_recap.txt"
+                            trigger_download(final_script, filename)
+                            st.success(f"📥 Auto-downloading: {filename}")
+                            
+                            # Show preview
+                            with st.expander("📄 Preview Script"):
+                                st.text_area("Script Content", final_script, height=200, key=f"preview_{current_index}")
+                            
+                            # Manual download button as backup
+                            st.download_button(
+                                "📥 Manual Download (Backup)", 
+                                final_script, 
+                                file_name=filename,
+                                key=f"manual_dl_{current_index}"
+                            )
+                            
+                            # Clean up Gemini file
+                            try: 
+                                genai.delete_file(gemini_file.name)
+                            except: 
+                                pass
+                        
+                        else:
+                            st.error(f"❌ Failed to upload {video_file.name} to Gemini")
+                            
                     except Exception as e:
-                        st.error(f"Error processing {video_file.name}: {e}")
+                        st.error(f"❌ Error processing {video_file.name}: {e}")
                     
                     finally:
+                        # Clean up temp file
                         if tmp_path and os.path.exists(tmp_path):
-                            os.remove(tmp_path)
+                            try:
+                                os.remove(tmp_path)
+                            except:
+                                pass
                         del tmp_path
-                        gc.collect() 
+                        gc.collect()
                 
-                progress_bar.progress((i + 1) / total_files)
+                # Move to next file
+                st.session_state['current_file_index'] += 1
+                time.sleep(2)  # Brief pause before next file
+                st.rerun()
             
-            status_box.success("🎉 All Scripts Generated!")
-            st.session_state['processing_recap'] = False
+            else:
+                # All files processed
+                st.success("🎉 All scripts generated successfully!")
+                st.balloons()
+                
+                # Reset button
+                if st.button("🔄 Process New Files", use_container_width=True):
+                    st.session_state['processing_recap'] = False
+                    st.session_state['current_file_index'] = 0
+                    if 'style_text' in st.session_state:
+                        del st.session_state['style_text']
+                    st.rerun()
+        
         else:
-             with st.container(border=True):
-                st.info("💡 Ready to generate scripts...")
+            with st.container(border=True):
+                st.info("💡 Upload up to 10 videos and click 'Start Sequential Processing'")
+                st.markdown("""
+                **How it works:**
+                1. Upload 1-10 video files
+                2. Optionally add writing style reference
+                3. Click 'Start Sequential Processing'
+                4. Each video will be processed one by one
+                5. Scripts auto-download after completion
+                6. Previous video is deleted before next starts
+                """)
 
 # ==========================================
 # TAB 2: UNIVERSAL TRANSLATOR
@@ -344,10 +458,7 @@ with tab4:
         with st.container(border=True):
             st.subheader("✍️ Style & Source")
             
-            # 1. Style Upload
             rewrite_style_file = st.file_uploader("1. Upload Writing Style", type=["txt", "pdf", "docx"])
-            
-            # 2. Input Script
             original_script = st.text_area("2. Paste Original Script Here", height=300, placeholder="Paste the script you want to rewrite...")
             
             if st.button("✨ Rewrite Script", use_container_width=True):
@@ -364,8 +475,7 @@ with tab4:
                 st.subheader("📝 Rewritten Output")
                 
                 try:
-                    # Process Style File
-                    style_content_rewrite = "Standard Professional Tone" # Default
+                    style_content_rewrite = "Standard Professional Tone"
                     
                     if rewrite_style_file:
                         with st.spinner("📖 Reading Style File..."):
@@ -379,7 +489,6 @@ with tab4:
                     with st.spinner("🤖 Rewriting... (Keeping 100% Content, Changing Style)"):
                         rewrite_model = genai.GenerativeModel(writer_model_name)
                         
-                        # STRICT PROMPT
                         rewrite_prompt = f"""
                         You are an expert Script Editor and Ghostwriter.
                         
@@ -415,5 +524,3 @@ with tab4:
 
 # --- FOOTER ---
 st.markdown("<div style='text-align: center; margin-top: 50px; opacity: 0.5; font-size: 0.8rem;'>Glassmorphism Edition • Powered by Gemini</div>", unsafe_allow_html=True)
-
-
