@@ -1033,30 +1033,47 @@ with tab3:
                                 status_text.info(f"🔄 Generating image {i+1}/{num_images}... Please wait...")
                                 progress_bar.progress((i) / num_images)
                                 
-                                # Generate image
-                                if ref_image:
-                                    # Read reference image
-                                    ref_image.seek(0)  # Reset file pointer
-                                    ref_img = Image.open(ref_image)
-                                    
-                                    response = image_model.generate_content(
-                                        [
-                                            f"Using this reference image as style guide, {final_prompt}",
-                                            ref_img
-                                        ],
-                                        generation_config=genai.GenerationConfig(
-                                            response_modalities=["image", "text"]
-                                        ),
-                                        request_options={"timeout": 180}
-                                    )
+                                # Different generation config based on model
+                                if "Gemini 3 Pro" in image_model_choice:
+                                    # Gemini 3 Pro - no response_modalities needed
+                                    if ref_image:
+                                        ref_image.seek(0)
+                                        ref_img = Image.open(ref_image)
+                                        response = image_model.generate_content(
+                                            [
+                                                f"Generate an image: Using this reference image as style guide, {final_prompt}",
+                                                ref_img
+                                            ],
+                                            request_options={"timeout": 180}
+                                        )
+                                    else:
+                                        response = image_model.generate_content(
+                                            f"Generate an image: {final_prompt}",
+                                            request_options={"timeout": 180}
+                                        )
                                 else:
-                                    response = image_model.generate_content(
-                                        final_prompt,
-                                        generation_config=genai.GenerationConfig(
-                                            response_modalities=["image", "text"]
-                                        ),
-                                        request_options={"timeout": 180}
-                                    )
+                                    # Gemini 2.0 Flash - uses response_modalities
+                                    if ref_image:
+                                        ref_image.seek(0)
+                                        ref_img = Image.open(ref_image)
+                                        response = image_model.generate_content(
+                                            [
+                                                f"Using this reference image as style guide, {final_prompt}",
+                                                ref_img
+                                            ],
+                                            generation_config=genai.GenerationConfig(
+                                                response_modalities=["image", "text"]
+                                            ),
+                                            request_options={"timeout": 180}
+                                        )
+                                    else:
+                                        response = image_model.generate_content(
+                                            final_prompt,
+                                            generation_config=genai.GenerationConfig(
+                                                response_modalities=["image", "text"]
+                                            ),
+                                            request_options={"timeout": 180}
+                                        )
                                 
                                 # Extract image from response
                                 image_found = False
@@ -1074,7 +1091,18 @@ with tab3:
                                             break
                                 
                                 if not image_found:
-                                    status_text.warning(f"⚠️ Image {i+1}: No image in response. Model may have returned text only.")
+                                    # Try to get text response for debugging
+                                    text_response = ""
+                                    if response.candidates:
+                                        for part in response.candidates[0].content.parts:
+                                            if hasattr(part, 'text') and part.text:
+                                                text_response = part.text[:200]
+                                                break
+                                    
+                                    if text_response:
+                                        status_text.warning(f"⚠️ Image {i+1}: Model returned text instead: {text_response}")
+                                    else:
+                                        status_text.warning(f"⚠️ Image {i+1}: No image in response.")
                                 
                                 # Small delay between generations
                                 if i < num_images - 1:
