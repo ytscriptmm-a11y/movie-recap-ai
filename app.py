@@ -218,7 +218,7 @@ with tab1:
                         
                         if gemini_file:
                             st.caption("👀 AI (Flash) is watching...")
-                            vision_model = genai.GenerativeModel("gemini-1.5-flash")
+                            vision_model = genai.GenerativeModel("models/gemini-robotics-er-1.5-preview")
                             
                             vision_prompt = """
                             Watch this video carefully. 
@@ -247,6 +247,8 @@ with tab1:
                             2. Use a storytelling tone.
                             3. Cover the whole story.
                             4. Do not summarize too much; keep details.
+                            5. Scene-by-scene. 
+                            6. Full narration.                         
                             """
                             
                             final_response = writer_model.generate_content(writer_prompt)
@@ -413,3 +415,4 @@ with tab4:
 
 # --- FOOTER ---
 st.markdown("<div style='text-align: center; margin-top: 50px; opacity: 0.5; font-size: 0.8rem;'>Glassmorphism Edition • Powered by Gemini</div>", unsafe_allow_html=True)
+
