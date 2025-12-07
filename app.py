@@ -226,7 +226,7 @@ with tab2:
                 os.remove(tmp_path)
 
 # ==========================================
-# TAB 3: AI THUMBNAIL STUDIO
+# TAB 3: AI THUMBNAIL STUDIO (FIXED)
 # ==========================================
 with tab3:
     st.subheader("🎨 AI Thumbnail Studio")
@@ -234,35 +234,45 @@ with tab3:
     
     with col_1:
         st.info("1. Upload References")
-        uploaded_images = st.file_uploader("Images (Max 4)", type=["png", "jpg"], accept_multiple_files=True)
-        if uploaded_images: st.image([Image.open(i) for i in uploaded_images[:4]], width=100)
+        uploaded_images = st.file_uploader("Images (Max 4)", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=True)
+        if uploaded_images: 
+            # Preview images immediately
+            st.image([Image.open(i) for i in uploaded_images[:4]], width=100)
 
     with col_2:
         st.info("2. Describe Idea")
-        user_prompt = st.text_area("Prompt", placeholder="Action style, red background...", height=100)
+        user_prompt = st.text_area("Prompt", placeholder="Action movie style, red background, hero holding a sword...", height=100)
         
         if st.button("✨ Generate Plan"):
             if not api_key or not uploaded_images:
-                st.warning("Needs API Key & Images.")
+                st.warning("⚠️ Please check API Key & Images.")
             else:
                 try:
-                    content = [user_prompt]
-                    temps = []
-                    for img in uploaded_images[:4]:
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-                            tmp.write(img.getvalue())
-                            temps.append(tmp.name)
-                        g_img = upload_to_gemini(tmp.name, mime_type="image/jpeg")
-                        if g_img: content.append(g_img)
+                    # Prepare content list
+                    input_content = [user_prompt]
                     
-                    model = genai.GenerativeModel(model_name)
-                    content.append("Analyze images + prompt. Output: Title, Visual Desc, Image Gen Prompt.")
-                    res = model.generate_content(content)
+                    with st.spinner("🎨 Designing..."):
+                        # Fix: Send images directly using PIL (Inline Data) instead of File API
+                        # This prevents the 'inline_data to text' error
+                        for img_file in uploaded_images[:4]:
+                            img = Image.open(img_file)
+                            input_content.append(img)
                     
-                    for p in temps: os.remove(p)
-                    st.markdown(res.text)
-                    st.download_button("📥 Save Plan", res.text, file_name="thumbnail_plan.txt")
-                except Exception as e: st.error(f"Error: {e}")
+                        model = genai.GenerativeModel(model_name)
+                        
+                        # Add system instruction
+                        input_content.append("\n\nAct as a professional YouTube Thumbnail Designer. Analyze the provided images and the user's prompt. Output a structured plan: 1. Title, 2. Visual Description, 3. Text Overlay, 4. Detailed Image Generation Prompt.")
+                        
+                        response = model.generate_content(input_content)
+                        
+                        st.success("Generated Successfully!")
+                        st.markdown(response.text)
+                        st.download_button("📥 Save Plan", response.text, file_name="thumbnail_plan.txt")
+                        
+                except Exception as e: 
+                    st.error(f"Error: {e}")
+                    st.info("💡 Suggestion: Try selecting 'gemini-1.5-pro' or 'gemini-2.0-flash-exp' from the top bar.")
 
 # --- FOOTER ---
 st.markdown("<div style='text-align: center; margin-top: 50px; color: #555;'>Powered by Google Gemini</div>", unsafe_allow_html=True)
+
