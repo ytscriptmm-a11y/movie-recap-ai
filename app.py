@@ -868,17 +868,135 @@ with tab2:
                 st.info("💡 Upload a file and click 'Translate Now' to start.")
 
 # ==========================================
-# TAB 3: AI THUMBNAIL STUDIO
+# TAB 3: AI THUMBNAIL STUDIO (GEMINI)
 # ==========================================
 with tab3:
     st.write("")
     with st.container(border=True):
-        st.subheader("🎨 Yupp.ai Thumbnail Studio")
-        try:
-            components.iframe("https://yupp.ai", height=800, scrolling=True)
-        except Exception as e:
-            st.error("Connection Error.")
-            st.link_button("Open yupp.ai", "https://yupp.ai")
+        st.subheader("🎨 AI Thumbnail Studio")
+        
+        st.markdown("""
+        <div style='text-align: center; padding: 40px 20px;'>
+            <h2 style='margin-bottom: 10px;'>🖼️ Create Thumbnails with Gemini AI</h2>
+            <p style='opacity: 0.8; margin-bottom: 30px;'>
+                Google Gemini ကို သုံးပြီး professional thumbnails တွေ ဖန်တီးလိုက်ပါ
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+        with col_btn2:
+            st.link_button(
+                "🚀 Open Google Gemini",
+                "https://gemini.google.com/app",
+                use_container_width=True
+            )
+        
+        st.markdown("---")
+        
+        # Thumbnail prompt templates
+        st.markdown("### 📝 Thumbnail Prompt Templates")
+        st.markdown("<p style='opacity: 0.7;'>Copy ကူးပြီး Gemini မှာ paste လုပ်ပါ</p>", unsafe_allow_html=True)
+        
+        prompt_templates = {
+            "🎬 Movie Recap Thumbnail": """Create a dramatic movie recap thumbnail with:
+- Split image showing 2-3 key dramatic scenes
+- Bold, eye-catching title text in Burmese/Myanmar font style
+- Dark cinematic color grading
+- Emotional character expressions
+- Size: 1280x720 pixels (YouTube thumbnail)
+- Style: Professional, dramatic, high contrast
+
+Movie title: [သင့်ရုပ်ရှင်နာမည်]""",
+            
+            "😱 Shocking/Dramatic Style": """Create a YouTube thumbnail with SHOCKED expression style:
+- A person with extremely surprised/shocked face
+- Bright red and yellow accent colors
+- Large bold text with outline
+- Arrow or circle pointing to key element
+- Exaggerated expressions
+- Size: 1280x720 pixels
+
+Topic: [သင့်ခေါင်းစဉ်]""",
+            
+            "🎭 Before/After Comparison": """Create a before/after comparison thumbnail:
+- Split screen design (left: before, right: after)
+- Clear dividing line or arrow in middle
+- Contrasting colors for each side
+- Bold "BEFORE" and "AFTER" labels
+- Dramatic transformation visible
+- Size: 1280x720 pixels
+
+Subject: [ဘာအကြောင်းအရာ]""",
+            
+            "🔥 Top 10 / List Style": """Create a Top 10 list style thumbnail:
+- Large number (10, 5, etc.) prominently displayed
+- Grid or collage of related images
+- Bright, energetic colors
+- Bold sans-serif title text
+- Professional YouTube style
+- Size: 1280x720 pixels
+
+List topic: [သင့်စာရင်းခေါင်းစဉ်]""",
+            
+            "💡 Tutorial/How-To Style": """Create a tutorial thumbnail:
+- Clean, professional look
+- Step numbers or icons visible
+- Friendly, approachable style
+- Tool or subject clearly shown
+- Light background with accent colors
+- Size: 1280x720 pixels
+
+Tutorial topic: [သင့် tutorial ခေါင်းစဉ်]"""
+        }
+        
+        selected_template = st.selectbox(
+            "Template ရွေးပါ:",
+            list(prompt_templates.keys())
+        )
+        
+        st.text_area(
+            "Prompt (Copy this to Gemini):",
+            prompt_templates[selected_template],
+            height=200,
+            key="thumbnail_prompt"
+        )
+        
+        col_copy1, col_copy2 = st.columns([1, 1])
+        with col_copy1:
+            st.markdown("""
+            <p style='font-size: 0.85rem; opacity: 0.7;'>
+            💡 <b>How to use:</b><br>
+            1. Click "Open Google Gemini" button<br>
+            2. Copy the prompt above<br>
+            3. Paste in Gemini and edit [bracketed] parts<br>
+            4. Generate your thumbnail!
+            </p>
+            """, unsafe_allow_html=True)
+        
+        with col_copy2:
+            st.markdown("""
+            <p style='font-size: 0.85rem; opacity: 0.7;'>
+            ⚡ <b>Tips:</b><br>
+            • Be specific about colors and style<br>
+            • Mention text language (Burmese/English)<br>
+            • Request multiple versions<br>
+            • Ask for variations if needed
+            </p>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Alternative AI Tools
+        st.markdown("### 🔗 Other AI Image Tools")
+        col_alt1, col_alt2, col_alt3 = st.columns(3)
+        
+        with col_alt1:
+            st.link_button("🎨 Canva AI", "https://www.canva.com/", use_container_width=True)
+        with col_alt2:
+            st.link_button("🖼️ Leonardo AI", "https://leonardo.ai/", use_container_width=True)
+        with col_alt3:
+            st.link_button("✨ Ideogram", "https://ideogram.ai/", use_container_width=True)
 
 # ==========================================
 # TAB 4: SCRIPT REWRITER
