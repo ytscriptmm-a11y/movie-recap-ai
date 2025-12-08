@@ -758,7 +758,7 @@ def process_video_from_path(file_path, video_name, vision_model_name, writer_mod
         vision_prompt = """
         Watch this video carefully. 
         Generate a highly detailed, chronological scene-by-scene description.
-        Include dialogue summaries, visual details, emotions, and actions.
+        Include All the dialogue in the movie, visual details, emotions, and actions.
         No creative writing yet, just facts.
         """
         
@@ -796,7 +796,7 @@ def process_video_from_path(file_path, video_name, vision_model_name, writer_mod
         2. Use a storytelling tone.
         3. Cover the whole story.
         4. Do not summarize too much; keep details.
-        5. Scene-by-scene. 
+        5. Scene-by-scene. All the dialogue in the movie.
         6. Full narration.                         
         """
         
@@ -1679,4 +1679,5 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
+
 
