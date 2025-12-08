@@ -50,7 +50,10 @@ def init_session_state():
         'run_rewrite': False,
         'style_text': "",
         'api_configured': False,
-        'custom_prompt': ""
+        'custom_prompt': "",
+        'generated_images': [],
+        'ai_news_cache': None,
+        'ai_news_timestamp': None
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -93,20 +96,11 @@ st.markdown("""
     }
     
     @keyframes matrix-fall {
-        0% {
-            transform: translateY(-100%);
-            opacity: 1;
-        }
-        75% {
-            opacity: 0.7;
-        }
-        100% {
-            transform: translateY(200vh);
-            opacity: 0;
-        }
+        0% { transform: translateY(-100%); opacity: 1; }
+        75% { opacity: 0.7; }
+        100% { transform: translateY(200vh); opacity: 0; }
     }
     
-    /* Generate multiple columns with different positions and speeds */
     .matrix-column:nth-child(1) { left: 2%; animation-duration: 8s; animation-delay: 0s; font-size: 12px; }
     .matrix-column:nth-child(2) { left: 6%; animation-duration: 12s; animation-delay: 1s; font-size: 10px; opacity: 0.5; }
     .matrix-column:nth-child(3) { left: 10%; animation-duration: 9s; animation-delay: 2s; font-size: 14px; }
@@ -133,13 +127,11 @@ st.markdown("""
     .matrix-column:nth-child(24) { left: 94%; animation-duration: 9s; animation-delay: 1.1s; font-size: 11px; opacity: 0.6; }
     .matrix-column:nth-child(25) { left: 98%; animation-duration: 14s; animation-delay: 4.2s; font-size: 10px; }
     
-    /* Main App Background - Transparent to show matrix */
     .stApp {
         background: transparent !important;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     
-    /* Add semi-transparent overlay for readability */
     .stApp::before {
         content: '';
         position: fixed;
@@ -152,7 +144,6 @@ st.markdown("""
         pointer-events: none;
     }
     
-    /* Hide Streamlit Header */
     header {visibility: hidden;}
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
@@ -163,7 +154,6 @@ st.markdown("""
         padding: 2rem 2rem !important;
     }
     
-    /* Card Styling - Glassmorphism with green tint */
     div[data-testid="stVerticalBlockBorderWrapper"] > div {
         background: linear-gradient(145deg, rgba(0, 40, 20, 0.85), rgba(10, 30, 15, 0.9)) !important;
         backdrop-filter: blur(20px);
@@ -174,7 +164,6 @@ st.markdown("""
         padding: 1.5rem;
     }
     
-    /* Input Fields - Matrix themed */
     .stTextInput input, .stTextArea textarea {
         background: rgba(0, 20, 10, 0.7) !important;
         color: #00ff66 !important;
@@ -195,7 +184,6 @@ st.markdown("""
         color: rgba(0, 255, 100, 0.4) !important;
     }
     
-    /* Select Box - Matrix themed */
     .stSelectbox div[data-baseweb="select"] > div {
         background: rgba(0, 20, 10, 0.7) !important;
         border: 2px solid rgba(0, 255, 100, 0.3) !important;
@@ -207,7 +195,6 @@ st.markdown("""
         border-color: rgba(0, 255, 100, 0.5) !important;
     }
     
-    /* Buttons - Matrix glow effect */
     .stButton > button {
         background: linear-gradient(135deg, rgba(0, 200, 80, 0.9) 0%, rgba(0, 150, 60, 0.9) 100%);
         color: #000 !important;
@@ -228,7 +215,6 @@ st.markdown("""
         background: linear-gradient(135deg, rgba(0, 255, 100, 1) 0%, rgba(0, 200, 80, 1) 100%);
     }
     
-    /* Download Button */
     .stDownloadButton > button {
         background: linear-gradient(135deg, rgba(0, 180, 255, 0.9) 0%, rgba(0, 120, 200, 0.9) 100%) !important;
         box-shadow: 0 4px 15px rgba(0, 180, 255, 0.3);
@@ -239,7 +225,6 @@ st.markdown("""
         box-shadow: 0 6px 25px rgba(0, 180, 255, 0.5);
     }
     
-    /* Tabs - Matrix themed */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
         background: rgba(0, 40, 20, 0.6);
@@ -272,7 +257,6 @@ st.markdown("""
         font-weight: 700;
     }
     
-    /* File Uploader - Matrix themed */
     [data-testid="stFileUploader"] {
         background: rgba(0, 40, 20, 0.4);
         border-radius: 12px;
@@ -287,7 +271,6 @@ st.markdown("""
         box-shadow: 0 0 30px rgba(0, 255, 100, 0.1);
     }
     
-    /* Typography - Matrix themed */
     h1 {
         color: #00ff66 !important;
         font-weight: 700 !important;
@@ -306,7 +289,6 @@ st.markdown("""
         color: rgba(0, 255, 100, 0.85) !important;
     }
     
-    /* Queue Items - Matrix themed */
     .queue-item {
         background: rgba(0, 40, 20, 0.5);
         border: 2px solid rgba(0, 255, 100, 0.2);
@@ -344,14 +326,8 @@ st.markdown("""
         border: 2px solid rgba(255, 50, 50, 0.5);
     }
     
-    /* Info/Success/Warning/Error boxes */
-    .stAlert {
-        border-radius: 10px !important;
-        background: rgba(0, 40, 20, 0.7) !important;
-        border: 1px solid rgba(0, 255, 100, 0.3) !important;
-    }
+    .stAlert { border-radius: 10px !important; }
     
-    /* Progress Bar - Matrix green */
     .stProgress > div > div {
         background: linear-gradient(90deg, #00ff66, #00cc55, #00ff66) !important;
         background-size: 200% 100%;
@@ -365,16 +341,9 @@ st.markdown("""
         100% { background-position: 200% 50%; }
     }
     
-    /* Radio Buttons */
-    .stRadio > div {
-        gap: 12px;
-    }
+    .stRadio > div { gap: 12px; }
+    .stRadio label { color: rgba(0, 255, 100, 0.85) !important; }
     
-    .stRadio label {
-        color: rgba(0, 255, 100, 0.85) !important;
-    }
-    
-    /* Metric - Matrix themed */
     [data-testid="stMetricValue"] {
         color: #00ff66 !important;
         font-weight: 700 !important;
@@ -382,22 +351,15 @@ st.markdown("""
         text-shadow: 0 0 10px rgba(0, 255, 100, 0.5);
     }
     
-    [data-testid="stMetricLabel"] {
-        color: rgba(0, 255, 100, 0.6) !important;
-    }
+    [data-testid="stMetricLabel"] { color: rgba(0, 255, 100, 0.6) !important; }
     
-    /* Expander */
     .streamlit-expanderHeader {
         background: rgba(0, 40, 20, 0.5) !important;
         border-radius: 10px !important;
         color: #00ff66 !important;
     }
     
-    /* Custom Title Styling */
-    .main-title {
-        text-align: center;
-        padding: 1rem 0 0.5rem 0;
-    }
+    .main-title { text-align: center; padding: 1rem 0 0.5rem 0; }
     
     .main-title h1 {
         background: linear-gradient(135deg, #00ff66, #00ffaa, #00ff66);
@@ -422,7 +384,6 @@ st.markdown("""
         letter-spacing: 2px;
     }
     
-    /* Divider */
     hr {
         border: none;
         height: 1px;
@@ -430,30 +391,41 @@ st.markdown("""
         margin: 1.5rem 0;
     }
     
-    /* Scrollbar - Matrix themed */
-    ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(0, 20, 10, 0.5); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: rgba(0, 255, 100, 0.4); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0, 255, 100, 0.6); }
+    
+    ::selection { background: rgba(0, 255, 100, 0.3); color: #00ff66; }
+    
+    /* News Card Styling */
+    .news-card {
+        background: rgba(0, 40, 20, 0.6);
+        border: 1px solid rgba(0, 255, 100, 0.2);
+        border-radius: 12px;
+        padding: 16px;
+        margin: 10px 0;
+        transition: all 0.3s ease;
     }
     
-    ::-webkit-scrollbar-track {
-        background: rgba(0, 20, 10, 0.5);
-        border-radius: 10px;
+    .news-card:hover {
+        border-color: rgba(0, 255, 100, 0.5);
+        box-shadow: 0 0 20px rgba(0, 255, 100, 0.1);
     }
     
-    ::-webkit-scrollbar-thumb {
-        background: rgba(0, 255, 100, 0.4);
-        border-radius: 10px;
+    .news-card h4 {
+        color: #00ff66 !important;
+        margin-bottom: 8px;
     }
     
-    ::-webkit-scrollbar-thumb:hover {
-        background: rgba(0, 255, 100, 0.6);
+    .news-card p {
+        color: rgba(0, 255, 100, 0.7) !important;
+        font-size: 0.9rem;
     }
     
-    /* Selection color */
-    ::selection {
-        background: rgba(0, 255, 100, 0.3);
-        color: #00ff66;
+    .news-card .source {
+        color: rgba(0, 180, 255, 0.8) !important;
+        font-size: 0.8rem;
     }
 </style>
 
@@ -489,6 +461,13 @@ st.markdown("""
 
 # --- HELPER FUNCTIONS ---
 
+def force_memory_cleanup():
+    """Force garbage collection and memory cleanup"""
+    gc.collect()
+    # Clear any large objects from session state that are no longer needed
+    if 'temp_data' in st.session_state:
+        del st.session_state['temp_data']
+
 def extract_file_id_from_url(url):
     """Extract Google Drive file ID from various URL formats"""
     try:
@@ -504,30 +483,26 @@ def extract_file_id_from_url(url):
         return None
 
 def download_video_from_url_gdown(url, progress_placeholder=None):
-    """Download video from Google Drive URL using gdown library (handles large files)"""
+    """Download video from Google Drive URL using gdown library"""
     try:
         file_id = extract_file_id_from_url(url)
         if not file_id:
             return None, "Invalid Google Drive URL format"
         
         if progress_placeholder:
-            progress_placeholder.info("📥 Downloading from Google Drive (using gdown)...")
+            progress_placeholder.info("📥 Downloading from Google Drive...")
         
-        # Create temp file
         tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
         tmp_path = tmp_file.name
         tmp_file.close()
         
-        # Use gdown to download
         gdrive_url = f"https://drive.google.com/uc?id={file_id}"
         
         if GDOWN_AVAILABLE:
-            # Use gdown library
             output = gdown.download(gdrive_url, tmp_path, quiet=False, fuzzy=True)
             if output is None:
                 return None, "gdown download failed. Check if file is shared publicly."
         else:
-            # Fallback: try using gdown via command line
             try:
                 result = subprocess.run(
                     [sys.executable, "-m", "gdown", gdrive_url, "-O", tmp_path, "--fuzzy"],
@@ -542,13 +517,11 @@ def download_video_from_url_gdown(url, progress_placeholder=None):
             except FileNotFoundError:
                 return None, "gdown not installed. Add 'gdown' to requirements.txt"
         
-        # Verify file
         if not os.path.exists(tmp_path):
             return None, "Download failed - file not created"
         
         file_size = os.path.getsize(tmp_path)
         if file_size < 1000:
-            # Check if it's HTML error page
             with open(tmp_path, 'rb') as f:
                 content = f.read(500)
                 if b'<!DOCTYPE' in content or b'<html' in content:
@@ -566,101 +539,28 @@ def download_video_from_url_gdown(url, progress_placeholder=None):
     except Exception as e:
         return None, f"Download error: {str(e)}"
 
-def download_video_from_url_requests(url, progress_callback=None):
-    """Fallback download using requests (for smaller files)"""
-    try:
-        file_id = extract_file_id_from_url(url)
-        if not file_id:
-            return None, "Invalid URL format"
-        
-        download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-        
-        session = requests.Session()
-        response = session.get(download_url, stream=True, timeout=60)
-        
-        # Handle virus scan warning
-        if 'text/html' in response.headers.get('content-type', ''):
-            for key, value in response.cookies.items():
-                if key.startswith('download_warning'):
-                    params = {'confirm': value}
-                    response = session.get(download_url, params=params, stream=True, timeout=300)
-                    break
-            else:
-                confirm_url = download_url + "&confirm=t"
-                response = session.get(confirm_url, stream=True, timeout=300)
-        
-        if response.status_code != 200:
-            return None, f"Download failed with status {response.status_code}"
-        
-        total_size = int(response.headers.get('content-length', 0))
-        
-        tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
-        
-        downloaded = 0
-        chunk_size = 8192
-        
-        for chunk in response.iter_content(chunk_size=chunk_size):
-            if chunk:
-                tmp_file.write(chunk)
-                downloaded += len(chunk)
-                if progress_callback and total_size > 0:
-                    progress_callback(downloaded / total_size)
-        
-        tmp_file.close()
-        
-        file_size = os.path.getsize(tmp_file.name)
-        if file_size < 1000:
-            with open(tmp_file.name, 'rb') as f:
-                content = f.read(100)
-                if b'<!DOCTYPE' in content or b'<html' in content:
-                    os.remove(tmp_file.name)
-                    return None, "Google Drive returned error. File may be too large - use gdown method."
-        
-        return tmp_file.name, None
-        
-    except requests.Timeout:
-        return None, "Download timed out"
-    except Exception as e:
-        return None, str(e)
-
 def download_video_from_url(url, progress_placeholder=None):
-    """Smart download: try gdown first for large files, fallback to requests"""
-    # Always try gdown first as it handles large files better
+    """Smart download using gdown"""
     if GDOWN_AVAILABLE:
-        tmp_path, error = download_video_from_url_gdown(url, progress_placeholder)
-        if tmp_path:
-            return tmp_path, None
-        # If gdown fails, try requests as fallback
-        if progress_placeholder:
-            progress_placeholder.warning(f"⚠️ gdown failed: {error}. Trying alternative method...")
-    
-    # Fallback to requests
-    progress_bar = st.progress(0)
-    def update_progress(p):
-        progress_bar.progress(p)
-    
-    tmp_path, error = download_video_from_url_requests(url, update_progress)
-    progress_bar.empty()
-    
-    return tmp_path, error
+        return download_video_from_url_gdown(url, progress_placeholder)
+    else:
+        return None, "gdown library not available. Please add 'gdown' to requirements.txt"
 
 def save_uploaded_file_chunked(uploaded_file, progress_placeholder=None):
-    """Save large uploaded file in chunks to avoid memory issues"""
+    """Save uploaded file in chunks"""
     try:
         file_ext = uploaded_file.name.split('.')[-1] if '.' in uploaded_file.name else 'mp4'
         tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}")
         tmp_path = tmp_file.name
         
-        # Get file size
-        uploaded_file.seek(0, 2)  # Seek to end
+        uploaded_file.seek(0, 2)
         file_size = uploaded_file.tell()
-        uploaded_file.seek(0)  # Reset to beginning
+        uploaded_file.seek(0)
         
         if progress_placeholder:
             progress_placeholder.info(f"💾 Saving file ({file_size / (1024*1024):.1f} MB)...")
         
-        # Write in chunks
-        chunk_size = 10 * 1024 * 1024  # 10MB chunks
+        chunk_size = 10 * 1024 * 1024
         written = 0
         
         progress_bar = st.progress(0)
@@ -727,7 +627,7 @@ def read_file_content(uploaded_file):
         
         elif file_type == "application/pdf":
             if not PDF_AVAILABLE:
-                st.error("⚠️ PyPDF2 not installed. Cannot read PDF files.")
+                st.error("⚠️ PyPDF2 not installed.")
                 return None
             reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.getvalue()))
             text = ""
@@ -739,7 +639,7 @@ def read_file_content(uploaded_file):
         
         elif file_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
             if not DOCX_AVAILABLE:
-                st.error("⚠️ python-docx not installed. Cannot read DOCX files.")
+                st.error("⚠️ python-docx not installed.")
                 return None
             doc = Document(io.BytesIO(uploaded_file.getvalue()))
             text = "\n".join([para.text for para in doc.paragraphs])
@@ -759,15 +659,72 @@ def cleanup_temp_file(file_path):
         except Exception:
             pass
 
+def get_response_text_safe(response):
+    """Safely extract text from Gemini response with proper error handling"""
+    try:
+        # Check if response has candidates
+        if not response:
+            return None, "No response received from Gemini"
+        
+        if not response.candidates:
+            # Check for prompt feedback (content blocked)
+            if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
+                block_reason = getattr(response.prompt_feedback, 'block_reason', 'Unknown')
+                return None, f"Content blocked by Gemini: {block_reason}"
+            return None, "Empty response from Gemini (no candidates)"
+        
+        candidate = response.candidates[0]
+        
+        # Check finish reason
+        if hasattr(candidate, 'finish_reason'):
+            finish_reason = str(candidate.finish_reason)
+            if 'SAFETY' in finish_reason:
+                return None, "Content blocked due to safety filters"
+            if 'RECITATION' in finish_reason:
+                return None, "Content blocked due to recitation policy"
+        
+        # Check if content exists
+        if not hasattr(candidate, 'content') or not candidate.content:
+            return None, "Response has no content"
+        
+        # Check if parts exist
+        if not hasattr(candidate.content, 'parts') or not candidate.content.parts:
+            return None, "Response content has no parts"
+        
+        # Extract text from parts
+        text_parts = []
+        for part in candidate.content.parts:
+            if hasattr(part, 'text') and part.text:
+                text_parts.append(part.text)
+        
+        if not text_parts:
+            return None, "No text found in response parts"
+        
+        return "\n".join(text_parts), None
+        
+    except Exception as e:
+        return None, f"Error extracting response: {str(e)}"
+
 def call_gemini_api(model, content, timeout=600):
-    """Call Gemini API with retry logic"""
+    """Call Gemini API with retry logic and proper error handling"""
     max_retries = 3
-    base_delay = 5
+    base_delay = 10  # Increased base delay for rate limiting
     
     for attempt in range(max_retries):
         try:
             response = model.generate_content(content, request_options={"timeout": timeout})
-            return response
+            
+            # Use safe extraction
+            text, error = get_response_text_safe(response)
+            if error:
+                if attempt < max_retries - 1:
+                    st.warning(f"⚠️ {error}. Retrying...")
+                    time.sleep(base_delay)
+                    continue
+                return None, error
+            
+            return response, None
+            
         except Exception as e:
             error_str = str(e).lower()
             
@@ -777,14 +734,14 @@ def call_gemini_api(model, content, timeout=600):
                     st.warning(f"⏳ Rate limited. Waiting {delay}s... (Attempt {attempt + 1}/{max_retries})")
                     time.sleep(delay)
                 else:
-                    raise Exception(f"Rate limit exceeded after {max_retries} retries.")
+                    return None, f"Rate limit exceeded after {max_retries} retries. Please wait a few minutes."
             else:
-                raise e
+                return None, str(e)
     
-    return None
+    return None, "Max retries exceeded"
 
-def process_video_from_path(file_path, video_name, writer_model_name, style_text="", custom_prompt="", status_placeholder=None):
-    """Process video from local file path"""
+def process_video_from_path(file_path, video_name, vision_model_name, writer_model_name, style_text="", custom_prompt="", status_placeholder=None):
+    """Process video from local file path with proper error handling"""
     gemini_file = None
     try:
         if status_placeholder:
@@ -797,7 +754,7 @@ def process_video_from_path(file_path, video_name, writer_model_name, style_text
         if status_placeholder:
             status_placeholder.info("👀 Step 2/3: AI analyzing video...")
         
-        vision_model = genai.GenerativeModel("models/gemini-2.5-pro")
+        vision_model = genai.GenerativeModel(vision_model_name)
         vision_prompt = """
         Watch this video carefully. 
         Generate a highly detailed, chronological scene-by-scene description.
@@ -805,11 +762,16 @@ def process_video_from_path(file_path, video_name, writer_model_name, style_text
         No creative writing yet, just facts.
         """
         
-        vision_response = call_gemini_api(vision_model, [gemini_file, vision_prompt], timeout=600)
-        if not vision_response:
-            return None, "Vision analysis failed"
+        vision_response, error = call_gemini_api(vision_model, [gemini_file, vision_prompt], timeout=600)
+        if error:
+            return None, f"Vision analysis failed: {error}"
         
-        video_description = vision_response.text
+        video_description, error = get_response_text_safe(vision_response)
+        if error:
+            return None, f"Failed to get vision response: {error}"
+        
+        # Add delay between API calls to avoid rate limiting
+        time.sleep(5)
         
         if status_placeholder:
             status_placeholder.info("✍️ Step 3/3: Writing Burmese recap script...")
@@ -838,11 +800,15 @@ def process_video_from_path(file_path, video_name, writer_model_name, style_text
         6. Full narration.                         
         """
         
-        final_response = call_gemini_api(writer_model, writer_prompt, timeout=600)
-        if not final_response:
-            return None, "Script writing failed"
+        final_response, error = call_gemini_api(writer_model, writer_prompt, timeout=600)
+        if error:
+            return None, f"Script writing failed: {error}"
         
-        return final_response.text, None
+        final_text, error = get_response_text_safe(final_response)
+        if error:
+            return None, f"Failed to get script: {error}"
+        
+        return final_text, None
         
     except Exception as e:
         return None, str(e)
@@ -853,10 +819,10 @@ def process_video_from_path(file_path, video_name, writer_model_name, style_text
                 genai.delete_file(gemini_file.name)
             except Exception: 
                 pass
-        gc.collect()
+        force_memory_cleanup()
 
-def process_video_from_url(url, video_name, writer_model_name, style_text="", custom_prompt="", status_placeholder=None):
-    """Process video from URL"""
+def process_video_from_url(url, video_name, vision_model_name, writer_model_name, style_text="", custom_prompt="", status_placeholder=None):
+    """Process video from URL with memory cleanup"""
     tmp_path = None
     try:
         if status_placeholder:
@@ -870,7 +836,7 @@ def process_video_from_url(url, video_name, writer_model_name, style_text="", cu
         if status_placeholder:
             status_placeholder.success("✅ Download complete!")
         
-        script, error = process_video_from_path(tmp_path, video_name, writer_model_name, style_text, custom_prompt, status_placeholder)
+        script, error = process_video_from_path(tmp_path, video_name, vision_model_name, writer_model_name, style_text, custom_prompt, status_placeholder)
         return script, error
         
     except Exception as e:
@@ -878,7 +844,7 @@ def process_video_from_url(url, video_name, writer_model_name, style_text="", cu
     
     finally:
         cleanup_temp_file(tmp_path)
-        gc.collect()
+        force_memory_cleanup()
 
 # --- MAIN TITLE ---
 st.markdown("""
@@ -898,27 +864,42 @@ if not GDOWN_AVAILABLE:
     missing_libs.append("gdown")
 
 if missing_libs:
-    st.warning(f"⚠️ Optional libraries missing: {', '.join(missing_libs)}. Add to requirements.txt for full functionality.")
+    st.warning(f"⚠️ Optional libraries missing: {', '.join(missing_libs)}. Add to requirements.txt.")
 
 # --- TOP CONTROL BAR ---
 with st.container(border=True):
-    col_api, col_model = st.columns([2, 1])
+    col_api, col_vision, col_writer = st.columns([2, 1, 1])
     
     with col_api:
         api_key = st.text_input("🔑 Google API Key", type="password", placeholder="Paste your API key here...", label_visibility="collapsed")
-        
-    with col_model:
+    
+    with col_vision:
+        vision_model_name = st.selectbox(
+            "Vision Model",
+            [
+                "models/gemini-2.5-flash",
+                "models/gemini-2.5-pro",
+                "gemini-1.5-flash",
+                "gemini-1.5-pro",
+                "gemini-2.0-flash-exp",
+            ],
+            index=0,
+            help="Model for video analysis",
+            label_visibility="collapsed"
+        )
+    
+    with col_writer:
         writer_model_name = st.selectbox(
             "Writer Model",
             [
-                "gemini-2.0-flash-exp", 
-                "gemini-1.5-pro",
-                "gemini-1.5-flash", 
-                "models/gemini-2.5-pro",
+                "gemini-1.5-flash",
+                "gemini-2.0-flash-exp",
                 "models/gemini-2.5-flash",
-                "models/gemini-3-pro-preview",
-                "models/gemini-3-pro-image-preview"
+                "gemini-1.5-pro",
+                "models/gemini-2.5-pro",
             ],
+            index=0,
+            help="Model for script writing",
             label_visibility="collapsed"
         )
     
@@ -930,7 +911,7 @@ with st.container(border=True):
 
 # --- TABS ---
 st.write("") 
-tab1, tab2, tab3, tab4 = st.tabs(["🎬 Movie Recap", "🌍 Translator", "🎨 Thumbnail AI", "✍️ Script Rewriter"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎬 Movie Recap", "🌍 Translator", "🎨 Thumbnail AI", "✍️ Script Rewriter", "📰 AI News"])
 
 # ==========================================
 # TAB 1: MOVIE RECAP
@@ -952,14 +933,10 @@ with tab1:
             st.markdown("---")
             
             if upload_method == "📁 Upload Files (Local)":
-                st.info("📌 Upload videos • Large files supported (chunked upload)")
+                # WARNING for large files
+                st.warning("⚠️ **200MB Limit:** Files over 200MB will fail. Use Google Drive links for large files.")
                 
-                # Warning for large files
-                st.markdown("""
-                <small style='opacity: 0.7;'>
-                💡 <b>Large File Tip:</b> For files >500MB, consider using Google Drive links for better reliability.
-                </small>
-                """, unsafe_allow_html=True)
+                st.info("📌 Upload videos (max 200MB per file)")
                 
                 uploaded_videos = st.file_uploader(
                     "Select Video Files",
@@ -981,10 +958,18 @@ with tab1:
                             
                             for video in files_to_add:
                                 try:
+                                    # Check file size
+                                    video.seek(0, 2)
+                                    file_size = video.tell()
+                                    video.seek(0)
+                                    
+                                    if file_size > 200 * 1024 * 1024:  # 200MB
+                                        st.error(f"❌ {video.name} is too large ({file_size/(1024*1024):.0f}MB). Use Google Drive for files >200MB.")
+                                        continue
+                                    
                                     status_msg = st.empty()
                                     status_msg.info(f"💾 Saving {video.name}...")
                                     
-                                    # Use chunked save for large files
                                     tmp_path, error = save_uploaded_file_chunked(video, status_msg)
                                     
                                     if error:
@@ -1008,14 +993,16 @@ with tab1:
                             
                             if added_count > 0:
                                 st.success(f"✅ Added {added_count} file(s) to queue!")
+                            
+                            force_memory_cleanup()
                             st.rerun()
             
             else:
-                st.info("📌 Paste Google Drive links (Max 10) • Supports large files (1GB+)")
+                st.success("✅ **Recommended for large files (1GB+)** - Uses gdown for reliable downloads")
+                st.info("📌 Paste Google Drive links (Max 10)")
                 st.markdown("""
                 <small style='opacity: 0.7;'>
-                💡 <b>Tip:</b> Make sure files are shared as "Anyone with link can view"<br>
-                🚀 <b>Large files:</b> Uses gdown library for reliable downloads
+                💡 Make sure files are shared as "Anyone with link can view"
                 </small>
                 """, unsafe_allow_html=True)
                 
@@ -1067,6 +1054,9 @@ with tab1:
             st.markdown("---")
             st.markdown("**⚙️ Settings**")
             
+            # Show selected models
+            st.caption(f"🔬 Vision: {vision_model_name.split('/')[-1]} | ✍️ Writer: {writer_model_name.split('/')[-1]}")
+            
             with st.expander("📝 Custom Instructions (Optional)", expanded=False):
                 custom_prompt = st.text_area(
                     "Add your custom instructions here:",
@@ -1110,6 +1100,7 @@ with tab1:
                     st.session_state['video_queue'] = []
                     st.session_state['processing_active'] = False
                     st.session_state['current_index'] = 0
+                    force_memory_cleanup()
                     st.success("Queue cleared!")
                     st.rerun()
 
@@ -1123,14 +1114,13 @@ with tab1:
                 **Two Ways to Add Videos:**
                 
                 **Method 1: Upload Files** 📁
-                - Drag & drop or browse for video files
-                - Supports large files with chunked upload
+                - For files under 200MB only
+                - Larger files will fail (Streamlit limit)
                 
-                **Method 2: Google Drive Links** 🔗 (Recommended for large files)
+                **Method 2: Google Drive Links** 🔗 ✅ Recommended
                 - Upload videos to Google Drive first
                 - Share → "Anyone with link can view"
-                - Copy links and paste here
-                - Uses gdown for reliable large file downloads
+                - Supports large files (1GB+)
                 """)
             else:
                 total = len(st.session_state['video_queue'])
@@ -1180,7 +1170,7 @@ with tab1:
                         )
                     
                     if item['status'] == 'failed' and item['error']:
-                        st.error(f"Error: {item['error'][:200]}")
+                        st.error(f"Error: {item['error'][:300]}")
         
         if st.session_state['processing_active']:
             current_idx = st.session_state['current_index']
@@ -1202,6 +1192,7 @@ with tab1:
                             script, error = process_video_from_path(
                                 current_item['file_path'],
                                 current_item['name'],
+                                vision_model_name,
                                 writer_model_name,
                                 style_text,
                                 custom_prompt,
@@ -1213,6 +1204,7 @@ with tab1:
                             script, error = process_video_from_url(
                                 current_item['url'],
                                 current_item['name'],
+                                vision_model_name,
                                 writer_model_name,
                                 style_text,
                                 custom_prompt,
@@ -1236,8 +1228,12 @@ with tab1:
                             st.session_state['video_queue'][current_idx]['error'] = error
                             status_placeholder.error(f"❌ Failed: {current_item['name']}")
                         
+                        # Add delay between videos to avoid rate limiting
+                        st.info("⏳ Waiting 10 seconds before next video (rate limit protection)...")
+                        time.sleep(10)
+                        
                         st.session_state['current_index'] += 1
-                        time.sleep(2)
+                        force_memory_cleanup()
                         st.rerun()
             
             else:
@@ -1277,10 +1273,14 @@ with tab2:
                         with st.spinner("📝 Translating text..."):
                             text_content = uploaded_file.getvalue().decode("utf-8")
                             model = genai.GenerativeModel(writer_model_name)
-                            res = call_gemini_api(model, f"Translate to **Burmese**. Return ONLY translated text.\nInput:\n{text_content}")
-                            if res:
-                                st.text_area("Result", res.text, height=300)
-                                st.download_button("📥 Download", res.text, file_name=f"trans_{uploaded_file.name}")
+                            res, error = call_gemini_api(model, f"Translate to **Burmese**. Return ONLY translated text.\nInput:\n{text_content}")
+                            if res and not error:
+                                text, _ = get_response_text_safe(res)
+                                if text:
+                                    st.text_area("Result", text, height=300)
+                                    st.download_button("📥 Download", text, file_name=f"trans_{uploaded_file.name}")
+                            else:
+                                st.error(f"Translation failed: {error}")
                     else:
                         with st.spinner("🎧 Listening & Translating..."):
                             tmp_path, error = save_uploaded_file_chunked(uploaded_file)
@@ -1290,16 +1290,20 @@ with tab2:
                                 gemini_file = upload_to_gemini(tmp_path)
                                 if gemini_file:
                                     model = genai.GenerativeModel(writer_model_name)
-                                    res = call_gemini_api(model, [gemini_file, "Generate full transcript in **Burmese**."], timeout=600)
-                                    if res:
-                                        st.text_area("Transcript", res.text, height=300)
-                                        st.download_button("📥 Download", res.text, file_name=f"{uploaded_file.name}_trans.txt")
+                                    res, error = call_gemini_api(model, [gemini_file, "Generate full transcript in **Burmese**."], timeout=600)
+                                    if res and not error:
+                                        text, _ = get_response_text_safe(res)
+                                        if text:
+                                            st.text_area("Transcript", text, height=300)
+                                            st.download_button("📥 Download", text, file_name=f"{uploaded_file.name}_trans.txt")
+                                    else:
+                                        st.error(f"Transcription failed: {error}")
                                     try: 
                                         genai.delete_file(gemini_file.name)
                                     except: 
                                         pass
                                 cleanup_temp_file(tmp_path)
-                            gc.collect()
+                            force_memory_cleanup()
                             
                 except Exception as e: 
                     st.error(f"Error: {e}")
@@ -1313,9 +1317,6 @@ with tab2:
 # ==========================================
 with tab3:
     st.write("")
-    
-    if 'generated_images' not in st.session_state:
-        st.session_state['generated_images'] = []
     
     col_thumb_left, col_thumb_right = st.columns([1, 1], gap="medium")
     
@@ -1557,14 +1558,18 @@ with tab4:
                         {original_script}
                         """
                         
-                        rewrite_response = call_gemini_api(rewrite_model, rewrite_prompt)
+                        rewrite_response, error = call_gemini_api(rewrite_model, rewrite_prompt)
                         
-                        if rewrite_response:
-                            st.success("✅ Rewrite Complete!")
-                            st.text_area("Result", rewrite_response.text, height=500)
-                            st.download_button("📥 Download", rewrite_response.text, file_name="rewritten_script.txt")
+                        if rewrite_response and not error:
+                            text, _ = get_response_text_safe(rewrite_response)
+                            if text:
+                                st.success("✅ Rewrite Complete!")
+                                st.text_area("Result", text, height=500)
+                                st.download_button("📥 Download", text, file_name="rewritten_script.txt")
+                            else:
+                                st.error("❌ Failed to extract rewritten text.")
                         else:
-                            st.error("❌ Rewrite failed.")
+                            st.error(f"❌ Rewrite failed: {error}")
                         
                 except Exception as e:
                     st.error(f"Error: {e}")
@@ -1573,6 +1578,96 @@ with tab4:
         else:
             with st.container(border=True):
                 st.info("💡 Paste a script and upload a style to rewrite.")
+
+# ==========================================
+# TAB 5: AI NEWS
+# ==========================================
+with tab5:
+    st.write("")
+    
+    with st.container(border=True):
+        st.subheader("📰 AI News - နောက်ဆုံးရ AI သတင်းများ")
+        st.markdown("နာမည်ကြီး AI Companies များရဲ့ နောက်ဆုံးရ သတင်းများကို Gemini နဲ့ ရှာဖွေပြသပေးပါတယ်။")
+        
+        col_news_btn, col_news_status = st.columns([1, 2])
+        
+        with col_news_btn:
+            fetch_news = st.button("🔄 Refresh AI News", use_container_width=True)
+        
+        with col_news_status:
+            # Show cache status
+            if st.session_state.get('ai_news_timestamp'):
+                st.caption(f"Last updated: {st.session_state['ai_news_timestamp']}")
+        
+        st.markdown("---")
+        
+        if fetch_news:
+            if not api_key:
+                st.error("⚠️ Please enter API Key first!")
+            else:
+                with st.spinner("🔍 Fetching latest AI news..."):
+                    try:
+                        news_model = genai.GenerativeModel(writer_model_name)
+                        
+                        news_prompt = """
+                        You are an AI news reporter. Please provide the latest news and updates about major AI companies and their products.
+                        
+                        Cover these companies/products:
+                        1. OpenAI (ChatGPT, GPT-4, GPT-5, Sora)
+                        2. Google (Gemini, Bard, DeepMind)
+                        3. Anthropic (Claude)
+                        4. Meta (Llama, AI features)
+                        5. Microsoft (Copilot, Azure AI)
+                        6. Stability AI (Stable Diffusion)
+                        7. Midjourney
+                        8. Other notable AI news
+                        
+                        For each company, provide:
+                        - Latest product updates or releases
+                        - New features announced
+                        - Important news or changes
+                        - Pricing changes if any
+                        
+                        Format: Use clear headers for each company. Keep it concise but informative.
+                        Write in English.
+                        Include approximate dates if known.
+                        """
+                        
+                        response, error = call_gemini_api(news_model, news_prompt, timeout=120)
+                        
+                        if response and not error:
+                            news_text, _ = get_response_text_safe(response)
+                            if news_text:
+                                st.session_state['ai_news_cache'] = news_text
+                                st.session_state['ai_news_timestamp'] = time.strftime("%Y-%m-%d %H:%M:%S")
+                                st.success("✅ News updated!")
+                            else:
+                                st.error("Failed to get news content")
+                        else:
+                            st.error(f"Failed to fetch news: {error}")
+                            
+                    except Exception as e:
+                        st.error(f"Error fetching news: {e}")
+        
+        # Display cached news
+        if st.session_state.get('ai_news_cache'):
+            st.markdown(st.session_state['ai_news_cache'])
+        else:
+            st.info("👆 Click 'Refresh AI News' to fetch the latest AI news and updates.")
+            
+            # Show placeholder content
+            st.markdown("""
+            **📌 Covered AI Companies:**
+            
+            - 🤖 **OpenAI** - ChatGPT, GPT-4, GPT-5, Sora
+            - 🔷 **Google** - Gemini, DeepMind
+            - 🟠 **Anthropic** - Claude
+            - 🔵 **Meta** - Llama, AI features
+            - 🟦 **Microsoft** - Copilot, Azure AI
+            - 🎨 **Stability AI** - Stable Diffusion
+            - 🖼️ **Midjourney**
+            - 📰 **Other AI News**
+            """)
 
 # --- FOOTER ---
 st.markdown("""
