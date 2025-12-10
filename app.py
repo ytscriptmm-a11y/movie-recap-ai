@@ -796,7 +796,7 @@ def process_video_from_path(file_path, video_name, vision_model_name, writer_mod
         2. Use a storytelling tone.
         3. Cover the whole story.
         4. Do not summarize too much; keep details.
-        5. Scene-by-scene. All the dialogue in the movie.
+        5. Scene-by-scene. 
         6. Full narration.                         
         """
         
@@ -1679,5 +1679,6 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
+
 
 
