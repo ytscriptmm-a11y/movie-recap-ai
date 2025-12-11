@@ -757,8 +757,8 @@ def process_video_from_path(file_path, video_name, vision_model_name, writer_mod
         vision_model = genai.GenerativeModel(vision_model_name)
         vision_prompt = """
         Watch this video carefully. 
-        Generate a highly detailed, chronological scene-by-scene description.
-        Include All the dialogue in the movie, visual details, emotions, and actions.
+        Generate a highly detailed, chronological scene-by-scene description. (Use a storytelling tone.)
+        Include All the dialogue in the movie, visual details, emotions, and actions. (Use a storytelling tone.)
         No creative writing yet, just facts.
         """
         
@@ -796,7 +796,7 @@ def process_video_from_path(file_path, video_name, vision_model_name, writer_mod
         2. Use a storytelling tone.
         3. Cover the whole story.
         4. Do not summarize too much; keep details.
-        5. Scene-by-scene. 
+        5. Scene-by-scene.(Use a storytelling tone.) 
         6. Full narration.                         
         """
         
@@ -1679,6 +1679,7 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
+
 
 
 
