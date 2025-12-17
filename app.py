@@ -685,7 +685,7 @@ with tab6:
             voice = st.selectbox("Voice", list(voices.keys()))
             rate = st.slider("Speed", -50, 50, 0, format="%d%%")
             
-            if st.button("Generate", use_container_width=True):
+      if st.button("Generate", use_container_width=True, key="btn_gen_tts"):
                 if tts_text.strip():
                     with st.spinner("Generating..."):
                         path, err = generate_tts(tts_text, voices[voice], rate)
