@@ -78,7 +78,6 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Myanmar:wght@400;500;600;700&display=swap');
     
-    /* တစ်မျက်နှာလုံး၏ နောက်ခံအရောင် */
     .stApp {
         background: #0f172a !important;
         font-family: 'Noto Sans Myanmar', sans-serif;
@@ -86,32 +85,32 @@ st.markdown("""
     
     header, #MainMenu, footer { visibility: hidden; }
     
-    /* --- အဓိက ပြင်ဆင်ထားသော နေရာ (MAIN FRAME) --- */
-    /* ဒီနေရာက Web App တစ်ခုလုံးကို ဘောင်ခတ်ပေးလိုက်တာပါ */
+    /* --- MAIN CONTAINER FIX --- */
     .main .block-container { 
-        max-width: 1000px !important; 
-        padding: 2.5rem !important; /* အတွင်းဖက် အကွာအဝေး */
+        max-width: 1200px !important;  /* လိုချင်သော အကျယ် (ဒီမှာ လိုသလို ပြောင်းနိုင်) */
+        padding: 2rem !important;
+        
+        /* အဓိကအချက်: အလယ်တည့်တည့်ရောက်စေရန် */
+        margin-left: auto !important;
+        margin-right: auto !important;
+        
+        /* ဒီဇိုင်းပိုင်းဆိုင်ရာများ */
         margin-top: 2rem !important;
-        
-        /* အပြင်ဘောင် (Outer Border) */
         border: 2px solid rgba(0, 212, 255, 0.5) !important; 
-        border-radius: 20px !important; /* ထောင့်များကို ဝိုင်းသည် */
-        
-        /* နောက်ခံအရောင်နှင့် အရိပ် (Glow Effect) */
+        border-radius: 20px !important;
         background: #151f32 !important;
         box-shadow: 0 0 25px rgba(0, 212, 255, 0.15) !important;
     }
-    
-    /* ဖုန်းဖြင့်ကြည့်လျှင် ဘောင်မပျောက်အောင် ထိန်းညှိခြင်း */
+
+    /* ဖုန်းမျက်နှာပြင်အတွက် */
     @media (max-width: 640px) {
         .main .block-container {
-            padding: 1rem !important;
             max-width: 95% !important;
-            border: 1px solid rgba(0, 212, 255, 0.5) !important;
+            padding: 1rem !important;
         }
     }
     
-    /* အတွင်းပိုင်း ဘောင်များ (Inner Containers) */
+    /* ကျန်ရှိသော CSS များ (မူလအတိုင်း) */
     div[data-testid="stVerticalBlockBorderWrapper"] > div {
         background: #1e293b !important;
         border: 1px solid rgba(0, 212, 255, 0.3) !important;
@@ -119,58 +118,13 @@ st.markdown("""
         padding: 1.5rem;
     }
     
-    /* Input Fields & Text Areas */
+    /* Input Fields */
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {
         background-color: #0f172a !important;
         color: #f8fafc !important;
         border: 1px solid rgba(0, 212, 255, 0.6) !important;
         border-radius: 10px !important;
-    }
-    
-    /* File Uploader */
-    div[data-testid="stFileUploader"] section {
-        background-color: #1e293b !important;
-        border: 1px dashed rgba(0, 212, 255, 0.5) !important;
-    }
-    div[data-testid="stFileUploader"] section > button {
-        background-color: rgba(0, 212, 255, 0.1) !important;
-        color: #f8fafc !important;
-    }
-    div[data-testid="stFileUploader"] span, 
-    div[data-testid="stFileUploader"] small {
-        color: #cbd5e1 !important;
-    }
-
-    /* Expander */
-    div[data-testid="stExpander"] {
-        background-color: transparent !important;
-        border: 1px solid rgba(0, 212, 255, 0.4) !important;
-        border-radius: 8px !important;
-    }
-    div[data-testid="stExpander"] > details > summary {
-        background-color: #1e293b !important;
-        color: #f8fafc !important;
-        border-radius: 8px !important;
-    }
-    div[data-testid="stExpander"] > details > summary:hover {
-        color: #00d4ff !important;
-    }
-    
-    /* Select Box */
-    .stSelectbox > div > div {
-        background: #0f172a !important;
-        border: 1px solid rgba(0, 212, 255, 0.6) !important;
-        border-radius: 10px !important;
-        color: #f8fafc !important;
-    }
-    div[data-baseweb="select"] > div {
-        background-color: #0f172a !important;
-        color: #f8fafc !important;
-    }
-    div[data-baseweb="popover"] > div {
-        background-color: #1e293b !important;
-        border: 1px solid rgba(0, 212, 255, 0.5) !important;
     }
     
     /* Buttons */
@@ -186,29 +140,48 @@ st.markdown("""
         color: #fff !important;
     }
     
-    /* Tabs */
+    /* Tabs & Text */
     .stTabs [data-baseweb="tab-list"] {
         background: #1e293b;
         padding: 10px;
         border-radius: 12px;
         border: 1px solid rgba(0, 212, 255, 0.3);
     }
-    .stTabs [data-baseweb="tab"] {
-        color: #cbd5e1;
-        padding: 10px 20px;
-    }
+    .stTabs [data-baseweb="tab"] { color: #cbd5e1; padding: 10px 20px; }
     .stTabs [aria-selected="true"] {
         background: #00d4ff !important;
         color: #000 !important;
         border-radius: 8px;
     }
-    
-    /* General Text */
     h1, h2, h3, h4, p, span, label, div[data-testid="stMarkdownContainer"] p {
         color: #f8fafc !important;
     }
     [data-testid="stMetricValue"] { color: #00d4ff !important; }
     hr { background: rgba(0, 212, 255, 0.5) !important; height: 1px; border: none; }
+    
+    /* File Uploader Fix */
+    div[data-testid="stFileUploader"] section {
+        background-color: #1e293b !important;
+        border: 1px dashed rgba(0, 212, 255, 0.5) !important;
+    }
+    div[data-testid="stFileUploader"] section > button {
+        background-color: rgba(0, 212, 255, 0.1) !important;
+        color: #f8fafc !important;
+    }
+    div[data-testid="stFileUploader"] span, div[data-testid="stFileUploader"] small {
+        color: #cbd5e1 !important;
+    }
+    
+    /* SelectBox Fix */
+    div[data-baseweb="select"] > div, .stSelectbox > div > div {
+        background-color: #0f172a !important;
+        color: #f8fafc !important;
+        border: 1px solid rgba(0, 212, 255, 0.6) !important;
+    }
+    div[data-baseweb="popover"] > div {
+        background-color: #1e293b !important;
+        border: 1px solid rgba(0, 212, 255, 0.5) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
