@@ -35,7 +35,7 @@ except ImportError:
     GDOWN_AVAILABLE = False
 
 try:
-    from supabase import create_client, Client
+    from supabase import create_client
 except ImportError:
     SUPABASE_AVAILABLE = False
 
@@ -49,7 +49,7 @@ SUPABASE_URL = "https://ohjvgupjocgsirhwuobf.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oanZndXBqb2Nnc2lyaHd1b2JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQzNDUwNzQsImV4cCI6MjA0OTkyMTA3NH0.2e0t5_P6zPM0KM6Jz5bPcSiT1gNb4BVqpXwiwFMvMYE"
 
 # Initialize Supabase client
-supabase: Client = None
+supabase = None
 if SUPABASE_AVAILABLE:
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
