@@ -427,16 +427,17 @@ init_session_state()
 # ==========================================
 
 # 1. NOT LOGGED IN
-if not st.session_state['user_session']:
-    st.title("🔒 Login / Sign Up")
-    st.markdown("---")
-    
-    tab_login, tab_signup = st.tabs(["Login", "Sign Up"])
-    
-    with tab_login:
-        email = st.text_input("Email", key="login_email")
-        password = st.text_input("Password", type="password", key="login_pass")
-        if st.button("Login", use_container_width=True):
+with tab_login:
+        st.subheader("Welcome Back!")
+        # Form သုံးလိုက်ရင် Browser က Password save ဖို့ မေးပါလိမ့်မယ်
+        with st.form("login_form"):
+            email = st.text_input("Email", key="login_email")
+            password = st.text_input("Password", type="password", key="login_pass")
+            
+            # Form Submit Button
+            submit_btn = st.form_submit_button("Login", use_container_width=True)
+            
+        if submit_btn:
             user, msg = login_user(email, password)
             if user:
                 st.session_state['user_session'] = user
