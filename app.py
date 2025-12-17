@@ -89,7 +89,7 @@ st.markdown("""
     /* --- အဓိက ပြင်ဆင်ထားသော နေရာ (MAIN FRAME) --- */
     /* ဒီနေရာက Web App တစ်ခုလုံးကို ဘောင်ခတ်ပေးလိုက်တာပါ */
     .main .block-container { 
-        max-width: 1200px !important; 
+        max-width: 1000px !important; 
         padding: 2.5rem !important; /* အတွင်းဖက် အကွာအဝေး */
         margin-top: 2rem !important;
         
