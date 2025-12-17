@@ -621,81 +621,195 @@ with tab2:
                                 except: pass
                             cleanup_temp_file(path)
 
-# === TAB 3: THUMBNAIL ===
+# === TAB 3: THUMBNAIL AI ===
 with tab3:
-    st.header("Thumbnail Generator")
+    st.write("")
     
-    with st.container(border=True):
-        ref_images = st.file_uploader("Reference Images (Max 10)", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key="ri")
-        
-        if ref_images:
-            cols = st.columns(min(len(ref_images), 5))
-            for i, img in enumerate(ref_images[:10]):
-                with cols[i % 5]:
-                    st.image(img, width=80)
-        
-        prompt = st.text_area("Description", height=100, placeholder="Describe the thumbnail...")
-        add_text = st.text_input("Text Overlay", placeholder="e.g. EP.1")
-        num_imgs = st.selectbox("Count", [1, 2, 3, 4])
-        
-        # ပြင်ထားသောလိုင်း (key="gen_thumb" ထည့်ထားသည်)
-        if st.button("Generate", use_container_width=True, key="gen_thumb"):
-            if api_key and prompt:
-                st.session_state['generated_images'] = []
-                final_prompt = prompt + (f", text: {add_text}" if add_text else "") + ", high quality"
-                
-                with st.spinner("Generating..."):
-                    try:
-                        model = genai.GenerativeModel("models/gemini-2.0-flash-exp")
-                        
-                        for i in range(num_imgs):
-                            st.info(f"Image {i+1}/{num_imgs}...")
-                            content = [f"Generate image: {final_prompt}"]
-                            if ref_images:
-                                for ref in ref_images[:3]:
-                                    ref.seek(0)
-                                    content.append(Image.open(ref))
-                            
-                            response = model.generate_content(content, request_options={"timeout": 180})
-                            
-                            if response.candidates:
-                                for part in response.candidates[0].content.parts:
-                                    if hasattr(part, 'inline_data') and part.inline_data:
-                                        st.session_state['generated_images'].append({'data': part.inline_data.data, 'idx': i+1})
-                                        break
-                            time.sleep(3)
-                        
-                        if st.session_state['generated_images']:
-                            st.success(f"Generated {len(st.session_state['generated_images'])} image(s)")
-                    except Exception as e:
-                        st.error(str(e))
+    # Layout ခွဲခြင်း
+    col_thumb_left, col_thumb_right = st.columns([1, 1], gap="medium")
     
-    if st.session_state.get('generated_images'):
+    # --- LEFT COLUMN: CONTROLS ---
+    with col_thumb_left:
         with st.container(border=True):
-            st.subheader("Results")
-            for img in st.session_state['generated_images']:
-                st.image(img['data'], use_container_width=True)
-                st.download_button(f"Download {img['idx']}", img['data'], f"thumb_{img['idx']}.png", key=f"dli_{img['idx']}_{time.time()}")
-
-# === TAB 4: REWRITE ===
-with tab4:
-    st.header("Script Rewriter")
+            st.subheader("🎨 AI Thumbnail Generator")
+            st.markdown("<p style='opacity: 0.7;'>Gemini 3 Pro (Nano Banana) ကိုအသုံးပြုထားသည်</p>", unsafe_allow_html=True)
+            
+            # --- Reference Image (Max 10 fixed) ---
+            st.markdown("**🖼️ Reference Images (Max 10):**")
+            ref_images = st.file_uploader(
+                "Upload reference images",
+                type=["png", "jpg", "jpeg", "webp"],
+                accept_multiple_files=True, # ပုံများစွာတင်ခွင့်ပြုသည်
+                key="thumb_ref_images"
+            )
+            
+            # Preview showing
+            if ref_images:
+                st.caption(f"Selected {len(ref_images)} reference image(s)")
+                cols = st.columns(min(len(ref_images), 4))
+                for i, img in enumerate(ref_images[:4]):
+                    with cols[i]:
+                        st.image(img, use_container_width=True)
+            
+            st.markdown("---")
+            
+            # --- Templates ---
+            st.markdown("**📝 Quick Templates:**")
+            prompt_templates = {
+                "✍️ Custom Prompt": "",
+                "🎬 Movie Recap Thumbnail": "Create a dramatic YouTube movie recap thumbnail, 1280x720 pixels, with cinematic dark color grading, showing dramatic scene with emotional expressions, bold eye-catching title text, professional high contrast style",
+                "😱 Shocking/Dramatic Style": "Create a YouTube thumbnail with shocked surprised expression style, bright red and yellow accent colors, large bold text with outline, arrow pointing to key element, exaggerated expressions, 1280x720 pixels",
+                "🎭 Before/After Comparison": "Create a before and after comparison YouTube thumbnail, split screen design with clear dividing line, contrasting colors for each side, bold BEFORE and AFTER labels, 1280x720 pixels",
+                "🔥 Top 10 List Style": "Create a Top 10 list style YouTube thumbnail, large number prominently displayed, grid collage of related images, bright energetic colors, bold sans-serif title, 1280x720 pixels",
+            }
+            
+            selected_template = st.selectbox(
+                "Template ရွေးပါ:",
+                list(prompt_templates.keys()),
+                key="thumb_template"
+            )
+            
+            default_prompt = prompt_templates[selected_template]
+            user_prompt = st.text_area(
+                "🖼️ Image Prompt:",
+                value=default_prompt,
+                height=150,
+                placeholder="Describe the thumbnail you want to generate...",
+                key="thumb_prompt_input"
+            )
+            
+            st.markdown("**⚙️ Customization:**")
+            col_opt1, col_opt2 = st.columns(2)
+            
+            with col_opt1:
+                add_text = st.text_input(
+                    "Text on Image:",
+                    placeholder="e.g., EP.1, PART 2",
+                    key="thumb_text"
+                )
+            
+            with col_opt2:
+                num_images = st.selectbox(
+                    "Number of Images:",
+                    [1, 2, 3, 4],
+                    index=0,
+                    key="thumb_num"
+                )
+            
+            style_options = st.multiselect(
+                "Style Modifiers:",
+                ["Cinematic", "Dramatic Lighting", "High Contrast", "Vibrant Colors", "Dark Mood", "Professional", "YouTube Style", "4K Quality"],
+                default=["YouTube Style", "High Contrast"],
+                key="thumb_styles"
+            )
+            
+            st.markdown("---")
+            
+            # Generate Button
+            generate_clicked = st.button("🚀 Generate Thumbnail", use_container_width=True, key="btn_gen_thumb")
     
-    with st.container(border=True):
-        style_file = st.file_uploader("Style Reference", type=["txt", "pdf", "docx"], key="rsf")
-        original = st.text_area("Original Script", height=250)
-        
-        if st.button("Rewrite", use_container_width=True):
-            if api_key and original:
-                style = read_file_content(style_file) if style_file else "Professional tone"
-                with st.spinner("Rewriting..."):
-                    model = genai.GenerativeModel(global_model)
-                    res, err = call_gemini_api(model, f"Rewrite in this style. Keep details. Output Burmese.\n\nSTYLE:\n{style[:5000]}\n\nORIGINAL:\n{original}")
-                    if res:
-                        text, _ = get_response_text_safe(res)
-                        if text:
-                            st.text_area("Result", text, height=350)
-                            st.download_button("Download", text, "rewritten.txt")
+    # --- RIGHT COLUMN: RESULTS ---
+    with col_thumb_right:
+        with st.container(border=True):
+            st.subheader("🖼️ Generated Images")
+            
+            if generate_clicked:
+                if not api_key:
+                    st.error("⚠️ Please enter API Key in Settings first!")
+                elif not user_prompt.strip():
+                    st.warning("⚠️ Please enter a prompt!")
+                else:
+                    st.session_state['generated_images'] = []
+                    
+                    # Prompt Construction
+                    final_prompt = user_prompt.strip()
+                    if add_text:
+                        final_prompt += f", with bold text overlay showing '{add_text}'"
+                    if style_options:
+                        final_prompt += f", style: {', '.join(style_options)}"
+                    final_prompt += ", high quality, detailed, sharp focus"
+                    
+                    st.info(f"🎨 Generating with Nano Banana Pro...")
+                    
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    try:
+                        # Model Initialization (Nano Banana Pro)
+                        image_model = genai.GenerativeModel("gemini-3-pro-image-preview")
+                        
+                        for i in range(num_images):
+                            try:
+                                status_text.info(f"🔄 Generating image {i+1}/{num_images}...")
+                                progress_bar.progress((i) / num_images)
+                                
+                                # Content Construction (Text + Images)
+                                content_request = [f"Generate an image: {final_prompt}"]
+                                
+                                # Handle Multiple Reference Images
+                                if ref_images:
+                                    for ref in ref_images[:10]: # Max 10 limit
+                                        ref.seek(0)
+                                        pil_img = Image.open(ref)
+                                        content_request.append(pil_img)
+                                
+                                # API Call
+                                response = image_model.generate_content(
+                                    content_request,
+                                    request_options={"timeout": 180}
+                                )
+                                
+                                # Process Response
+                                image_found = False
+                                if response.candidates:
+                                    for part in response.candidates[0].content.parts:
+                                        if hasattr(part, 'inline_data') and part.inline_data:
+                                            st.session_state['generated_images'].append({
+                                                'data': part.inline_data.data,
+                                                'mime_type': part.inline_data.mime_type,
+                                                'index': i + 1
+                                            })
+                                            image_found = True
+                                            status_text.success(f"✅ Image {i+1} generated!")
+                                            break
+                                
+                                if not image_found:
+                                    status_text.warning(f"⚠️ Image {i+1} Failed. Model might have refused due to safety filters.")
+                                    # Debug info (optional)
+                                    # st.write(response.prompt_feedback)
+                                
+                                time.sleep(2) # Avoid rate limits
+                                
+                            except Exception as inner_e:
+                                status_text.error(f"⚠️ Image {i+1} Error: {str(inner_e)}")
+                        
+                        progress_bar.progress(1.0)
+                        
+                    except Exception as e:
+                        st.error(f"❌ Critical Error: {str(e)}")
+            
+            # --- DISPLAY RESULTS ---
+            if st.session_state.get('generated_images'):
+                for idx, img_data in enumerate(st.session_state['generated_images']):
+                    st.markdown(f"**Image {img_data['index']}:**")
+                    st.image(img_data['data'], use_container_width=True)
+                    
+                    file_ext = "png" if "png" in img_data.get('mime_type', 'png') else "jpg"
+                    st.download_button(
+                        f"📥 Download Image {img_data['index']}",
+                        img_data['data'],
+                        file_name=f"thumbnail_{idx+1}.{file_ext}",
+                        mime=img_data.get('mime_type', 'image/png'),
+                        key=f"dl_thumb_{idx}_{time.time()}"
+                    )
+                    st.markdown("---")
+                
+                if st.button("🗑️ Clear All Images", use_container_width=True, key="clear_thumb_btn"):
+                    st.session_state['generated_images'] = []
+                    st.rerun()
+            
+            elif not generate_clicked and not st.session_state.get('generated_images'):
+                st.info("💡 Settings Tab မှာ API Key ထည့်ထားဖို့မမေ့ပါနဲ့။")
 
 # === TAB 5: NOTES ===
 with tab5:
