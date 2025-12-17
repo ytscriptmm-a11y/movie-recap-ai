@@ -531,12 +531,11 @@ def process_video(file_path, video_name, vision_model, writer_model, style="", c
         
         if status: status.info("👀 အဆင့် ၂/၃: ခွဲခြမ်းစိတ်ဖြာနေသည်...")
         vision = genai.GenerativeModel(vision_model)
-        resp, err = call_gemini_api(vision, [gemini_file, " vision_prompt = """
-        Watch this video carefully. 
+        resp, err = call_gemini_api(vision, [gemini_file, "Watch this video carefully. 
         Generate a highly detailed, chronological scene-by-scene description. (Use a storytelling tone.)
         Include All the dialogue in the movie, visual details, emotions, and actions. (Use a storytelling tone.)
         No creative writing yet, just facts.
-        """."], 600)
+        """"], 600)
         if err: return None, f"ခွဲခြမ်းစိတ်ဖြာ မအောင်မြင်ပါ: {err}"
         desc, _ = get_response_text_safe(resp)
         
@@ -544,7 +543,8 @@ def process_video(file_path, video_name, vision_model, writer_model, style="", c
         
         if status: status.info("✍️ အဆင့် ၃/၃: Script ရေးနေသည်...")
         writer = genai.GenerativeModel(writer_model)
-        prompt = f"You are a professional Burmese Movie Recap Scriptwriter.
+        prompt = f"""
+        You are a professional Burmese Movie Recap Scriptwriter.
         Turn this description into an engaging **Burmese Movie Recap Script**.
         
         **INPUT DATA:**
@@ -560,7 +560,7 @@ def process_video(file_path, video_name, vision_model, writer_model, style="", c
         4. Do not summarize too much; keep details.
         5. Scene-by-scene.(Use a storytelling tone.) 
         6. Full narration.                         
-        "
+        """
         resp, err = call_gemini_api(writer, prompt, 600)
         if err: return None, f"ရေးသား မအောင်မြင်ပါ: {err}"
         
@@ -574,13 +574,12 @@ def process_video(file_path, video_name, vision_model, writer_model, style="", c
         force_memory_cleanup()
 
 # --- MAIN TITLE ---
-st.markdown("### 🎬 ဗီဒီယို ရီကပ် Script ဖန်တီးရန်")
-    
-    c1, c2 = st.columns([1, 1], gap="medium")
-    
-    with c1:
-        with st.container(border=True):
-            st.markdown("#### 📂 ဗီဒီယိုထည့်ရန်")
+st.markdown("""
+<div class="main-title">
+    <h1>AI STUDIO PRO</h1>
+    <p>// သင့်အတွက် AI လက်ထောက် //</p>
+</div>
+""", unsafe_allow_html=True)
 
 # --- API KEY (TOP) ---
 with st.container(border=True):
@@ -1140,10 +1139,7 @@ with tab7:
 st.markdown("""
 <div style='text-align: center; margin-top: 2rem; padding: 1.5rem; border-top: 1px solid rgba(0, 240, 255, 0.1);'>
     <p style='color: rgba(255, 255, 255, 0.3) !important; font-size: 0.8rem; font-family: "Orbitron", monospace; letter-spacing: 2px;'>
-         AI STUDIO PRO v5.0 | POWERED BY GEMINI
+        AI STUDIO PRO v5.0 - POWERED BY GEMINI
     </p>
 </div>
 """, unsafe_allow_html=True)
-
-
-
