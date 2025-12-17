@@ -640,7 +640,7 @@ with tab1:
             with model_col2:
                 writer_model = st.selectbox(
                     "Writer Model", 
-                    ["gemini-1.5-flash", "gemini-2.0-flash-exp", "models/gemini-2.5-flash", "models/gemini-2.5-pro"],
+                    ["gemini-1.5-flash", "gemini-2.0-flash-exp", "models/gemini-3-pro-preview", "models/gemini-2.5-flash", "models/gemini-2.5-pro"],
                     key="writer_model",
                     help="Script ရေးသားရန်"
                 )
@@ -1157,3 +1157,4 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
+
