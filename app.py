@@ -126,7 +126,7 @@ st.markdown("""
     
     header, #MainMenu, footer { visibility: hidden; }
     
-    .main .block-container { max-width: 1600px !important; padding: 2rem !important; }
+    .main .block-container { max-width: 1500px !important; padding: 2rem !important; }
     
     div[data-testid="stVerticalBlockBorderWrapper"] > div {
         background: linear-gradient(145deg, rgba(0, 40, 20, 0.85), rgba(10, 30, 15, 0.9)) !important;
@@ -437,7 +437,7 @@ with st.container(border=True):
         except: pass
 
 # --- TABS ---
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["🎬 Recap", "🌍 Translator", "🎨 Thumbnail", "✍️ Rewriter", "📰 News", "📝 Notes", "🔊 TTS", "🎬 Editor"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["🎬 Recap", "🌍 Translator", "🎨 Thumbnail", "✍️ Rewriter", "📝 Notes", "🔊 TTS", "🎬 Editor"])
 
 # === TAB 1: MOVIE RECAP ===
 with tab1:
@@ -754,67 +754,8 @@ with tab4:
             else:
                 st.info("Paste script and click Rewrite")
 
-# === TAB 5: AI NEWS (FIXED) ===
+# === TAB 5: NOTES ===
 with tab5:
-    with st.container(border=True):
-        st.subheader("📰 AI News")
-        
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            refresh = st.button("🔄 Refresh", use_container_width=True)
-        with col2:
-            if st.session_state.get('ai_news_timestamp'):
-                st.caption(f"Updated: {st.session_state['ai_news_timestamp']}")
-        
-        if refresh:
-            if not api_key:
-                st.error("⚠️ API Key required")
-            else:
-                with st.spinner("Fetching latest AI news..."):
-                    try:
-                        model = genai.GenerativeModel("gemini-1.5-flash")  # Use faster model for news
-                        prompt = """You are an AI news reporter. Provide the LATEST news (December 2024 - present) about:
-
-1. **OpenAI** - ChatGPT, GPT-4, Sora updates
-2. **Google** - Gemini 2.0, AI Studio updates  
-3. **Anthropic** - Claude 3.5, Claude updates
-4. **Meta** - Llama 3, AI features
-5. **Microsoft** - Copilot updates
-6. **Other** - Notable AI developments
-
-For each: Latest updates, new features, pricing changes. Be concise and factual."""
-                        
-                        response, err = call_gemini_api(model, prompt, 120)
-                        if response:
-                            text, _ = get_response_text_safe(response)
-                            if text:
-                                st.session_state['ai_news_cache'] = text
-                                st.session_state['ai_news_timestamp'] = time.strftime("%Y-%m-%d %H:%M")
-                                st.rerun()
-                            else:
-                                st.error("Failed to get response")
-                        else:
-                            st.error(f"Error: {err}")
-                    except Exception as e:
-                        st.error(f"Error: {e}")
-        
-        st.markdown("---")
-        
-        if st.session_state.get('ai_news_cache'):
-            st.markdown(st.session_state['ai_news_cache'])
-        else:
-            st.info("👆 Click 'Refresh' to fetch the latest AI news")
-            st.markdown("""
-**Covered Topics:**
-- 🤖 OpenAI (ChatGPT, GPT-4, Sora)
-- 🔷 Google (Gemini, AI Studio)
-- 🟠 Anthropic (Claude)
-- 🔵 Meta (Llama)
-- 🟦 Microsoft (Copilot)
-""")
-
-# === TAB 6: NOTES ===
-with tab6:
     with st.container(border=True):
         st.subheader("📝 Note Pad")
         
@@ -874,8 +815,8 @@ with tab6:
                 else:
                     st.info("👈 Select or create a note")
 
-# === TAB 7: TTS ===
-with tab7:
+# === TAB 6: TTS ===
+with tab6:
     with st.container(border=True):
         st.subheader("🔊 Text-to-Speech")
         
@@ -925,8 +866,8 @@ with tab7:
                 else:
                     st.info("Enter text and generate")
 
-# === TAB 8: EDITOR MODE ===
-with tab8:
+# === TAB 7: EDITOR MODE (with drag-drop video) ===
+with tab7:
     with st.container(border=True):
         st.subheader("🎬 Editor Mode")
         st.caption("Script editing with video player - side by side")
@@ -985,34 +926,89 @@ with tab8:
         with video_col:
             st.markdown("### 🎥 Video Player")
             
-            # Video upload
-            video_file = st.file_uploader("📂 Load Video", type=["mp4", "mkv", "mov", "webm"], key="ed_video")
+            # Drag and drop video with HTML5
+            st.markdown("""
+            <style>
+            .video-drop-zone {
+                border: 3px dashed rgba(0, 255, 100, 0.5);
+                border-radius: 15px;
+                padding: 40px 20px;
+                text-align: center;
+                background: rgba(0, 40, 20, 0.4);
+                margin: 10px 0;
+                transition: all 0.3s ease;
+            }
+            .video-drop-zone:hover {
+                border-color: rgba(0, 255, 100, 0.8);
+                background: rgba(0, 255, 100, 0.1);
+            }
+            .video-drop-zone p {
+                color: rgba(0, 255, 100, 0.7) !important;
+                margin: 0;
+                font-size: 14px;
+            }
+            .video-drop-zone .icon {
+                font-size: 48px;
+                margin-bottom: 10px;
+            }
+            #editor-video-player {
+                width: 100%;
+                max-height: 400px;
+                border-radius: 10px;
+                background: #000;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            # Video upload with drag-drop styling
+            video_file = st.file_uploader(
+                "🎬 Drag & Drop Video Here",
+                type=["mp4", "mkv", "mov", "webm", "avi"],
+                key="ed_video",
+                help="Drag and drop or click to select video"
+            )
             
             if video_file:
-                # Save to temp and play
                 try:
                     video_bytes = video_file.read()
                     st.video(video_bytes)
-                    st.success(f"✅ Loaded: {video_file.name}")
+                    
+                    # Video info
+                    size_mb = len(video_bytes) / (1024 * 1024)
+                    st.success(f"✅ {video_file.name} ({size_mb:.1f} MB)")
+                    
+                    # Playback controls info
+                    st.caption("🎮 Controls: Space=Play/Pause, ←→=Seek, F=Fullscreen")
+                    
                 except Exception as e:
                     st.error(f"Error: {e}")
             else:
-                st.info("👆 Upload a video file to play")
+                # Show drop zone placeholder
                 st.markdown("""
-                **Supported formats:**
-                - MP4, MKV, MOV, WebM
+                <div class="video-drop-zone">
+                    <div class="icon">🎬</div>
+                    <p><strong>Drag & Drop Video Here</strong></p>
+                    <p style="font-size: 12px; margin-top: 10px;">or click to browse</p>
+                    <p style="font-size: 11px; margin-top: 15px; opacity: 0.6;">
+                        Supports: MP4, MKV, MOV, WebM, AVI
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
                 
-                **Tips:**
-                - Drag the slider above to resize panels
+                st.markdown("---")
+                st.markdown("""
+                **💡 Tips:**
+                - Drag video file directly onto the upload area
                 - Script on left, video on right
-                - Use Google Docs link to save online
+                - Use slider above to resize panels
+                - Use Google Docs link to save script online
                 """)
 
 # --- FOOTER ---
 st.markdown("""
 <div style='text-align: center; margin-top: 2rem; padding: 1rem; border-top: 1px solid rgba(0, 255, 100, 0.1);'>
     <p style='color: rgba(0, 255, 100, 0.4) !important; font-size: 0.8rem; font-family: "Share Tech Mono", monospace;'>
-        ✨ ULTIMATE AI STUDIO v4.0 • GEMINI + SUPABASE + EDGE TTS
+        ✨ ULTIMATE AI STUDIO v4.1 • GEMINI + SUPABASE + EDGE TTS
     </p>
 </div>
 """, unsafe_allow_html=True)
