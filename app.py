@@ -85,14 +85,11 @@ st.markdown("""
     
     header, #MainMenu, footer { visibility: hidden; }
     
-    /* --- MAIN CONTAINER FIX (1000px) --- */
-    .main .block-container { 
-        max-width: 1000px !important;  /* ဒီနေရာမှာ 1000px သို့ ပြောင်းထားသည် */
+    /* --- MAIN CONTAINER FIX (Centered to Custom Width) --- */
+    /* ဒီကုဒ်က Centered layout ကို 1000px အထိ ပြန်ချဲ့ပေးပါမယ် */
+    [data-testid="block-container"] {
+        max-width: 1000px !important;
         padding: 2rem !important;
-        
-        /* အလယ်တည့်တည့်ရောက်စေရန် */
-        margin-left: auto !important;
-        margin-right: auto !important;
         
         /* ဒီဇိုင်းပိုင်းဆိုင်ရာများ */
         margin-top: 2rem !important;
@@ -104,7 +101,7 @@ st.markdown("""
 
     /* ဖုန်းမျက်နှာပြင်အတွက် */
     @media (max-width: 640px) {
-        .main .block-container {
+        [data-testid="block-container"] {
             max-width: 95% !important;
             padding: 1rem !important;
         }
@@ -118,6 +115,7 @@ st.markdown("""
         padding: 1.5rem;
     }
     
+    /* Input Fields */
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {
         background-color: #0f172a !important;
@@ -126,6 +124,7 @@ st.markdown("""
         border-radius: 10px !important;
     }
     
+    /* Buttons */
     .stButton > button {
         background: linear-gradient(135deg, #00d4ff, #0099cc) !important;
         color: #000 !important;
@@ -138,6 +137,7 @@ st.markdown("""
         color: #fff !important;
     }
     
+    /* Tabs & Text */
     .stTabs [data-baseweb="tab-list"] {
         background: #1e293b;
         padding: 10px;
@@ -156,6 +156,7 @@ st.markdown("""
     [data-testid="stMetricValue"] { color: #00d4ff !important; }
     hr { background: rgba(0, 212, 255, 0.5) !important; height: 1px; border: none; }
     
+    /* File Uploader Fix */
     div[data-testid="stFileUploader"] section {
         background-color: #1e293b !important;
         border: 1px dashed rgba(0, 212, 255, 0.5) !important;
@@ -168,6 +169,7 @@ st.markdown("""
         color: #cbd5e1 !important;
     }
     
+    /* SelectBox Fix */
     div[data-baseweb="select"] > div, .stSelectbox > div > div {
         background-color: #0f172a !important;
         color: #f8fafc !important;
