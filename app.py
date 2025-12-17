@@ -86,37 +86,74 @@ st.markdown("""
         padding: 1rem 2rem !important;
     }
     
-    /* Main Containers - ဘောင်များကို ပိုထင်းအောင် 0.2 မှ 0.6 သို့ ပြောင်းသည် */
+    /* Main Containers */
     div[data-testid="stVerticalBlockBorderWrapper"] > div {
         background: #1e293b !important;
-        border: 1px solid rgba(0, 212, 255, 0.6) !important; /* Changed 0.2 to 0.6 */
+        border: 1px solid rgba(0, 212, 255, 0.6) !important;
         border-radius: 16px !important;
         padding: 1.5rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Added shadow for depth */
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
     
-    /* Input Fields - စာလုံးအရောင် ပိုဖြူအောင်နှင့် ဘောင်ပိုထင်းအောင် ပြုပြင်သည် */
+    /* --- FIXED: INPUT FIELDS & TEXT AREAS (စာရိုက်ကွက်များ) --- */
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {
-        background: #0f172a !important;
-        color: #f8fafc !important; /* Brighter white text */
-        border: 1px solid rgba(0, 212, 255, 0.7) !important; /* Changed 0.3 to 0.7 */
+        background-color: #0f172a !important; /* Dark background */
+        color: #f8fafc !important; /* White text */
+        border: 1px solid rgba(0, 212, 255, 0.7) !important;
         border-radius: 10px !important;
     }
     
-    /* Select Box - ဘောင်ပိုထင်းအောင် ပြုပြင်သည် */
-    .stSelectbox > div > div {
-        background: #0f172a !important;
-        border: 1px solid rgba(0, 212, 255, 0.7) !important; /* Changed 0.3 to 0.7 */
-        border-radius: 10px !important;
+    /* --- FIXED: FILE UPLOADER (ဖိုင်တင်တဲ့ အကွက်ဖြူဖြူကို ပြင်သည်) --- */
+    div[data-testid="stFileUploader"] section {
+        background-color: #1e293b !important; /* Dark background */
+        border: 1px dashed rgba(0, 212, 255, 0.5) !important;
+    }
+    
+    div[data-testid="stFileUploader"] section > button {
+        background-color: rgba(0, 212, 255, 0.1) !important;
         color: #f8fafc !important;
+    }
+    
+    div[data-testid="stFileUploader"] span, 
+    div[data-testid="stFileUploader"] small {
+        color: #cbd5e1 !important; /* Light gray text */
     }
 
-    /* Select Box အတွင်းမှ စာသားများ */
-    div[data-baseweb="select"] > div {
-        color: #f8fafc !important;
+    /* --- FIXED: EXPANDERS (Custom Instructions ခေါင်းစဉ်ဘားကို ပြင်သည်) --- */
+    div[data-testid="stExpander"] {
+        background-color: transparent !important;
+        border: 1px solid rgba(0, 212, 255, 0.4) !important;
+        border-radius: 8px !important;
     }
     
+    div[data-testid="stExpander"] > details > summary {
+        background-color: #1e293b !important;
+        color: #f8fafc !important;
+        border-radius: 8px !important;
+    }
+    
+    div[data-testid="stExpander"] > details > summary:hover {
+        color: #00d4ff !important;
+    }
+    
+    /* Select Box */
+    .stSelectbox > div > div {
+        background: #0f172a !important;
+        border: 1px solid rgba(0, 212, 255, 0.7) !important;
+        border-radius: 10px !important;
+        color: #f8fafc !important;
+    }
+    div[data-baseweb="select"] > div {
+        background-color: #0f172a !important;
+        color: #f8fafc !important;
+    }
+    div[data-baseweb="popover"] > div {
+        background-color: #1e293b !important;
+        border: 1px solid rgba(0, 212, 255, 0.5) !important;
+    }
+    
+    /* Buttons */
     .stButton > button {
         background: linear-gradient(135deg, #00d4ff, #0099cc) !important;
         color: #000 !important;
@@ -127,18 +164,19 @@ st.markdown("""
     
     .stDownloadButton > button {
         background: linear-gradient(135deg, #10b981, #059669) !important;
+        color: #fff !important;
     }
     
+    /* Tabs */
     .stTabs [data-baseweb="tab-list"] {
         background: #1e293b;
         padding: 10px;
         border-radius: 12px;
-        border: 1px solid rgba(0, 212, 255, 0.3); /* Added subtle border to tabs container */
+        border: 1px solid rgba(0, 212, 255, 0.3);
     }
     
-    /* Unselected Tabs - ရွေးမထားသော Tab စာလုံးများကို ပိုလင်းအောင် ပြင်သည် */
     .stTabs [data-baseweb="tab"] {
-        color: #cbd5e1; /* Brighter gray */
+        color: #cbd5e1;
         padding: 10px 20px;
     }
     
@@ -148,15 +186,14 @@ st.markdown("""
         border-radius: 8px;
     }
     
-    /* General Text - ခေါင်းစဉ်နှင့် စာသားများကို ပိုဖြူအောင် ပြင်သည် */
+    /* General Text */
     h1, h2, h3, h4, p, span, label, div[data-testid="stMarkdownContainer"] p {
-        color: #f8fafc !important; /* Brighter white text */
+        color: #f8fafc !important;
     }
     
     [data-testid="stMetricValue"] { color: #00d4ff !important; }
     
-    /* Divider Line - မျဉ်းကို ပိုထင်းအောင် ပြင်သည် */
-    hr { background: rgba(0, 212, 255, 0.5) !important; height: 1px; border: none; } /* Changed 0.2 to 0.5 */
+    hr { background: rgba(0, 212, 255, 0.5) !important; height: 1px; border: none; }
 </style>
 """, unsafe_allow_html=True)
 
