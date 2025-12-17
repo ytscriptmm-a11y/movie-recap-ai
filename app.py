@@ -82,7 +82,7 @@ st.markdown("""
     header, #MainMenu, footer { visibility: hidden; }
     
     .main .block-container { 
-        max-width: 900px !important; 
+        max-width: 800px !important; 
         padding: 1rem 2rem !important;
     }
     
