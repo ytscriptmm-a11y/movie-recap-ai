@@ -1140,9 +1140,10 @@ with tab7:
 st.markdown("""
 <div style='text-align: center; margin-top: 2rem; padding: 1.5rem; border-top: 1px solid rgba(0, 240, 255, 0.1);'>
     <p style='color: rgba(255, 255, 255, 0.3) !important; font-size: 0.8rem; font-family: "Orbitron", monospace; letter-spacing: 2px;'>
-         AI STUDIO PRO v5.0 • POWERED BY GEMINI
+         AI STUDIO PRO v5.0 | POWERED BY GEMINI
     </p>
 </div>
 """, unsafe_allow_html=True)
+
 
 
