@@ -525,25 +525,38 @@ def call_gemini_api(model, content, timeout=600):
 def process_video(file_path, video_name, vision_model, writer_model, style="", custom="", status=None):
     gemini_file = None
     try:
-        if status: status.info("📤 အဆင့် ၁/၃: တင်နေသည်...")
+        if status: status.info("📤 အဆင့် ၁/၃: Gemini သို့ တင်နေသည်...")
         gemini_file = upload_to_gemini(file_path, status)
         if not gemini_file: return None, "တင်၍မရပါ"
         
-        if status: status.info("👀 အဆင့် ၂/၃: ခွဲခြမ်းစိတ်ဖြာနေသည်...")
+        if status: status.info("👀 အဆင့် ၂/၃: AI ဗီဒီယို ခွဲခြမ်းစိတ်ဖြာနေသည်...")
         vision = genai.GenerativeModel(vision_model)
-        resp, err = call_gemini_api(vision, [gemini_file, "Watch this video carefully. 
+        
+        vision_prompt = """
+        Watch this video carefully. 
         Generate a highly detailed, chronological scene-by-scene description. (Use a storytelling tone.)
         Include All the dialogue in the movie, visual details, emotions, and actions. (Use a storytelling tone.)
         No creative writing yet, just facts.
-        """"], 600)
+        """
+        
+        resp, err = call_gemini_api(vision, [gemini_file, vision_prompt], 600)
         if err: return None, f"ခွဲခြမ်းစိတ်ဖြာ မအောင်မြင်ပါ: {err}"
-        desc, _ = get_response_text_safe(resp)
+        video_description, _ = get_response_text_safe(resp)
         
         time.sleep(5)
         
-        if status: status.info("✍️ အဆင့် ၃/၃: Script ရေးနေသည်...")
+        if status: status.info("✍️ အဆင့် ၃/၃: မြန်မာ ရီကပ် Script ရေးနေသည်...")
         writer = genai.GenerativeModel(writer_model)
-        prompt = f"""
+        
+        custom_instructions = ""
+        if custom:
+            custom_instructions = f"\n\n**CUSTOM INSTRUCTIONS:**\n{custom}\n"
+        
+        style_text = ""
+        if style:
+            style_text = f"\n\n**WRITING STYLE REFERENCE:**\n{style}\n"
+        
+        writer_prompt = f"""
         You are a professional Burmese Movie Recap Scriptwriter.
         Turn this description into an engaging **Burmese Movie Recap Script**.
         
@@ -559,9 +572,10 @@ def process_video(file_path, video_name, vision_model, writer_model, style="", c
         3. Cover the whole story.
         4. Do not summarize too much; keep details.
         5. Scene-by-scene.(Use a storytelling tone.) 
-        6. Full narration.                         
+        6. Full narration.
         """
-        resp, err = call_gemini_api(writer, prompt, 600)
+        
+        resp, err = call_gemini_api(writer, writer_prompt, 600)
         if err: return None, f"ရေးသား မအောင်မြင်ပါ: {err}"
         
         text, _ = get_response_text_safe(resp)
