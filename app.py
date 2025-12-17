@@ -602,7 +602,7 @@ if st.button("Generate", use_container_width=True):
                     except Exception as e:
                         st.error(str(e))
     
-    if st.session_state.get('generated_images'):
+if st.session_state.get('generated_images'):
         with st.container(border=True):
             st.subheader("Results")
             for img in st.session_state['generated_images']:
