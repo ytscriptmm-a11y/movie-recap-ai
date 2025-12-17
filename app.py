@@ -53,7 +53,11 @@ if SUPABASE_AVAILABLE:
         SUPABASE_AVAILABLE = False
 
 # --- PAGE CONFIG ---
-st.set_page_config(page_title="AI Studio Pro", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="AI Studio Pro", 
+    layout="wide",  # "centered" ဖြစ်နေရင် "wide" လို့ ပြောင်းလိုက်ပါ
+    initial_sidebar_state="collapsed"
+)
 
 # --- SESSION STATE ---
 def init_session_state():
@@ -85,7 +89,7 @@ st.markdown("""
     /* --- အဓိက ပြင်ဆင်ထားသော နေရာ (MAIN FRAME) --- */
     /* ဒီနေရာက Web App တစ်ခုလုံးကို ဘောင်ခတ်ပေးလိုက်တာပါ */
     .main .block-container { 
-        max-width: 1000px !important; 
+        max-width: 1200px !important; 
         padding: 2.5rem !important; /* အတွင်းဖက် အကွာအဝေး */
         margin-top: 2rem !important;
         
