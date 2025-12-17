@@ -1,11 +1,12 @@
 import streamlit as st
 import google.generativeai as genai
-import streamlit.components.v1 as components
 import time
 import os
 import tempfile
 import gc
 import io
+import hashlib
+import asyncio
 from PIL import Image
 import requests
 import subprocess
@@ -15,6 +16,8 @@ import sys
 PDF_AVAILABLE = True
 DOCX_AVAILABLE = True
 GDOWN_AVAILABLE = True
+SUPABASE_AVAILABLE = True
+EDGE_TTS_AVAILABLE = True
 
 try:
     import PyPDF2
@@ -30,6 +33,28 @@ try:
     import gdown
 except ImportError:
     GDOWN_AVAILABLE = False
+
+try:
+    from supabase import create_client, Client
+except ImportError:
+    SUPABASE_AVAILABLE = False
+
+try:
+    import edge_tts
+except ImportError:
+    EDGE_TTS_AVAILABLE = False
+
+# --- SUPABASE CONFIGURATION ---
+SUPABASE_URL = "https://ohjvgupjocgsirhwuobf.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oanZndXBqb2Nnc2lyaHd1b2JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQzNDUwNzQsImV4cCI6MjA0OTkyMTA3NH0.2e0t5_P6zPM0KM6Jz5bPcSiT1gNb4BVqpXwiwFMvMYE"
+
+# Initialize Supabase client
+supabase: Client = None
+if SUPABASE_AVAILABLE:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        SUPABASE_AVAILABLE = False
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -53,7 +78,10 @@ def init_session_state():
         'custom_prompt': "",
         'generated_images': [],
         'ai_news_cache': None,
-        'ai_news_timestamp': None
+        'ai_news_timestamp': None,
+        'notes_list': [],
+        'current_note_id': None,
+        'tts_audio': None
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -64,10 +92,8 @@ init_session_state()
 # --- MATRIX RAIN BACKGROUND CSS ---
 st.markdown("""
 <style>
-    /* Import Google Font */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
     
-    /* Matrix Rain Container */
     .matrix-bg {
         position: fixed;
         top: 0;
@@ -79,7 +105,6 @@ st.markdown("""
         background: linear-gradient(180deg, #0a0a0f 0%, #0d1117 50%, #0a0f0a 100%);
     }
     
-    /* Matrix Rain Columns - CSS Only Animation */
     .matrix-column {
         position: absolute;
         top: -100%;
@@ -148,7 +173,6 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Main Container - Max Width 1800px */
     .main .block-container {
         max-width: 1800px !important;
         padding: 2rem 2rem !important;
@@ -160,7 +184,7 @@ st.markdown("""
         -webkit-backdrop-filter: blur(20px);
         border: 2px solid rgba(0, 255, 100, 0.25) !important;
         border-radius: 16px !important;
-        box-shadow: 0 4px 24px rgba(0, 255, 100, 0.15), 0 0 0 1px rgba(0, 255, 100, 0.1), inset 0 1px 0 rgba(0, 255, 100, 0.1);
+        box-shadow: 0 4px 24px rgba(0, 255, 100, 0.15);
         padding: 1.5rem;
     }
     
@@ -172,16 +196,11 @@ st.markdown("""
         padding: 12px 16px !important;
         font-size: 14px !important;
         font-family: 'Share Tech Mono', monospace !important;
-        transition: all 0.3s ease;
     }
     
     .stTextInput input:focus, .stTextArea textarea:focus {
         border-color: rgba(0, 255, 100, 0.7) !important;
-        box-shadow: 0 0 0 3px rgba(0, 255, 100, 0.15), 0 0 20px rgba(0, 255, 100, 0.2) !important;
-    }
-    
-    .stTextInput input::placeholder, .stTextArea textarea::placeholder {
-        color: rgba(0, 255, 100, 0.4) !important;
+        box-shadow: 0 0 0 3px rgba(0, 255, 100, 0.15) !important;
     }
     
     .stSelectbox div[data-baseweb="select"] > div {
@@ -189,10 +208,6 @@ st.markdown("""
         border: 2px solid rgba(0, 255, 100, 0.3) !important;
         border-radius: 10px !important;
         color: #00ff66 !important;
-    }
-    
-    .stSelectbox div[data-baseweb="select"] > div:hover {
-        border-color: rgba(0, 255, 100, 0.5) !important;
     }
     
     .stButton > button {
@@ -203,26 +218,19 @@ st.markdown("""
         padding: 0.75rem 1.5rem;
         font-weight: 700;
         font-size: 14px;
-        letter-spacing: 0.5px;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(0, 255, 100, 0.3), 0 0 30px rgba(0, 255, 100, 0.1);
+        box-shadow: 0 4px 15px rgba(0, 255, 100, 0.3);
         text-transform: uppercase;
     }
     
     .stButton > button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 25px rgba(0, 255, 100, 0.5), 0 0 40px rgba(0, 255, 100, 0.2);
-        background: linear-gradient(135deg, rgba(0, 255, 100, 1) 0%, rgba(0, 200, 80, 1) 100%);
+        box-shadow: 0 6px 25px rgba(0, 255, 100, 0.5);
     }
     
     .stDownloadButton > button {
         background: linear-gradient(135deg, rgba(0, 180, 255, 0.9) 0%, rgba(0, 120, 200, 0.9) 100%) !important;
-        box-shadow: 0 4px 15px rgba(0, 180, 255, 0.3);
         color: #000 !important;
-    }
-    
-    .stDownloadButton > button:hover {
-        box-shadow: 0 6px 25px rgba(0, 180, 255, 0.5);
     }
     
     .stTabs [data-baseweb="tab-list"] {
@@ -231,6 +239,7 @@ st.markdown("""
         padding: 8px;
         border-radius: 12px;
         border: 1px solid rgba(0, 255, 100, 0.2);
+        flex-wrap: wrap;
     }
     
     .stTabs [data-baseweb="tab"] {
@@ -238,51 +247,27 @@ st.markdown("""
         border-radius: 8px;
         color: rgba(0, 255, 100, 0.7);
         border: 1px solid transparent;
-        padding: 10px 20px;
+        padding: 10px 16px;
         font-weight: 500;
-        transition: all 0.3s ease;
-    }
-    
-    .stTabs [data-baseweb="tab"]:hover {
-        color: rgba(0, 255, 100, 0.95);
-        background: rgba(0, 255, 100, 0.1);
-        border: 1px solid rgba(0, 255, 100, 0.3);
+        font-size: 13px;
     }
     
     .stTabs [aria-selected="true"] {
         background: linear-gradient(135deg, rgba(0, 200, 80, 0.9) 0%, rgba(0, 150, 60, 0.9) 100%) !important;
         color: #000 !important;
-        border: none !important;
-        box-shadow: 0 4px 15px rgba(0, 255, 100, 0.4), 0 0 20px rgba(0, 255, 100, 0.2);
         font-weight: 700;
-    }
-    
-    [data-testid="stFileUploader"] {
-        background: rgba(0, 40, 20, 0.4);
-        border-radius: 12px;
-        padding: 16px;
-        border: 2px dashed rgba(0, 255, 100, 0.4) !important;
-        transition: all 0.3s ease;
-    }
-    
-    [data-testid="stFileUploader"]:hover {
-        border-color: rgba(0, 255, 100, 0.7) !important;
-        background: rgba(0, 255, 100, 0.05);
-        box-shadow: 0 0 30px rgba(0, 255, 100, 0.1);
     }
     
     h1 {
         color: #00ff66 !important;
         font-weight: 700 !important;
         font-size: 2rem !important;
-        letter-spacing: -0.5px;
-        text-shadow: 0 0 10px rgba(0, 255, 100, 0.5), 0 0 30px rgba(0, 255, 100, 0.3);
+        text-shadow: 0 0 10px rgba(0, 255, 100, 0.5);
     }
     
     h2, h3 {
         color: #00ff66 !important;
         font-weight: 600 !important;
-        text-shadow: 0 0 8px rgba(0, 255, 100, 0.3);
     }
     
     p, label, .stMarkdown {
@@ -295,68 +280,32 @@ st.markdown("""
         border-radius: 10px;
         padding: 12px 16px;
         margin: 8px 0;
-        transition: all 0.3s ease;
         font-family: 'Share Tech Mono', monospace;
-    }
-    
-    .queue-item:hover {
-        background: rgba(0, 255, 100, 0.05);
-        border-color: rgba(0, 255, 100, 0.4);
-        box-shadow: 0 0 20px rgba(0, 255, 100, 0.1);
-    }
-    
-    .queue-item.processing {
-        background: rgba(0, 255, 100, 0.1);
-        border: 2px solid rgba(0, 255, 100, 0.5);
-        animation: pulse-glow 2s infinite;
-    }
-    
-    @keyframes pulse-glow {
-        0%, 100% { box-shadow: 0 0 5px rgba(0, 255, 100, 0.3); }
-        50% { box-shadow: 0 0 20px rgba(0, 255, 100, 0.6); }
     }
     
     .queue-item.completed {
         background: rgba(0, 180, 255, 0.1);
-        border: 2px solid rgba(0, 180, 255, 0.5);
+        border-color: rgba(0, 180, 255, 0.5);
     }
     
     .queue-item.failed {
         background: rgba(255, 50, 50, 0.1);
-        border: 2px solid rgba(255, 50, 50, 0.5);
+        border-color: rgba(255, 50, 50, 0.5);
     }
     
-    .stAlert { border-radius: 10px !important; }
-    
-    .stProgress > div > div {
-        background: linear-gradient(90deg, #00ff66, #00cc55, #00ff66) !important;
-        background-size: 200% 100%;
-        animation: progress-glow 2s linear infinite;
+    .note-card {
+        background: rgba(0, 40, 20, 0.6);
+        border: 1px solid rgba(0, 255, 100, 0.3);
         border-radius: 10px;
-        box-shadow: 0 0 10px rgba(0, 255, 100, 0.5);
+        padding: 12px;
+        margin: 8px 0;
+        cursor: pointer;
+        transition: all 0.3s ease;
     }
     
-    @keyframes progress-glow {
-        0% { background-position: 0% 50%; }
-        100% { background-position: 200% 50%; }
-    }
-    
-    .stRadio > div { gap: 12px; }
-    .stRadio label { color: rgba(0, 255, 100, 0.85) !important; }
-    
-    [data-testid="stMetricValue"] {
-        color: #00ff66 !important;
-        font-weight: 700 !important;
-        font-family: 'Share Tech Mono', monospace !important;
-        text-shadow: 0 0 10px rgba(0, 255, 100, 0.5);
-    }
-    
-    [data-testid="stMetricLabel"] { color: rgba(0, 255, 100, 0.6) !important; }
-    
-    .streamlit-expanderHeader {
-        background: rgba(0, 40, 20, 0.5) !important;
-        border-radius: 10px !important;
-        color: #00ff66 !important;
+    .note-card:hover {
+        border-color: rgba(0, 255, 100, 0.6);
+        box-shadow: 0 0 15px rgba(0, 255, 100, 0.2);
     }
     
     .main-title { text-align: center; padding: 1rem 0 0.5rem 0; }
@@ -365,11 +314,8 @@ st.markdown("""
         background: linear-gradient(135deg, #00ff66, #00ffaa, #00ff66);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        background-clip: text;
         font-size: 2.8rem !important;
-        margin-bottom: 0.25rem;
         animation: title-glow 3s ease-in-out infinite;
-        text-shadow: none;
     }
     
     @keyframes title-glow {
@@ -379,7 +325,6 @@ st.markdown("""
     
     .main-title p {
         color: rgba(0, 255, 100, 0.5) !important;
-        font-size: 1rem;
         font-family: 'Share Tech Mono', monospace;
         letter-spacing: 2px;
     }
@@ -394,42 +339,8 @@ st.markdown("""
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: rgba(0, 20, 10, 0.5); border-radius: 10px; }
     ::-webkit-scrollbar-thumb { background: rgba(0, 255, 100, 0.4); border-radius: 10px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(0, 255, 100, 0.6); }
-    
-    ::selection { background: rgba(0, 255, 100, 0.3); color: #00ff66; }
-    
-    /* News Card Styling */
-    .news-card {
-        background: rgba(0, 40, 20, 0.6);
-        border: 1px solid rgba(0, 255, 100, 0.2);
-        border-radius: 12px;
-        padding: 16px;
-        margin: 10px 0;
-        transition: all 0.3s ease;
-    }
-    
-    .news-card:hover {
-        border-color: rgba(0, 255, 100, 0.5);
-        box-shadow: 0 0 20px rgba(0, 255, 100, 0.1);
-    }
-    
-    .news-card h4 {
-        color: #00ff66 !important;
-        margin-bottom: 8px;
-    }
-    
-    .news-card p {
-        color: rgba(0, 255, 100, 0.7) !important;
-        font-size: 0.9rem;
-    }
-    
-    .news-card .source {
-        color: rgba(0, 180, 255, 0.8) !important;
-        font-size: 0.8rem;
-    }
 </style>
 
-<!-- Matrix Rain Background HTML -->
 <div class="matrix-bg">
     <div class="matrix-column">ア イ ウ エ オ カ キ ク ケ コ 0 1 0 1 サ シ ス セ ソ</div>
     <div class="matrix-column">1 0 1 タ チ ツ テ ト ナ ニ ヌ ネ ノ 0 1 0 ハ ヒ フ</div>
@@ -461,33 +372,125 @@ st.markdown("""
 
 # --- HELPER FUNCTIONS ---
 
+def get_user_hash(api_key):
+    """Generate a hash from API key for user identification"""
+    return hashlib.sha256(api_key.encode()).hexdigest()[:32]
+
 def force_memory_cleanup():
-    """Force garbage collection and memory cleanup"""
+    """Force garbage collection"""
     gc.collect()
-    # Clear any large objects from session state that are no longer needed
     if 'temp_data' in st.session_state:
         del st.session_state['temp_data']
 
+# --- SUPABASE NOTES FUNCTIONS ---
+
+def get_notes(user_hash):
+    """Get all notes for a user"""
+    if not SUPABASE_AVAILABLE or not supabase:
+        return []
+    try:
+        response = supabase.table('notes').select('*').eq('user_hash', user_hash).order('updated_at', desc=True).execute()
+        return response.data if response.data else []
+    except Exception as e:
+        st.error(f"Error fetching notes: {e}")
+        return []
+
+def create_note(user_hash, title, content):
+    """Create a new note"""
+    if not SUPABASE_AVAILABLE or not supabase:
+        return None
+    try:
+        response = supabase.table('notes').insert({
+            'user_hash': user_hash,
+            'title': title,
+            'content': content
+        }).execute()
+        return response.data[0] if response.data else None
+    except Exception as e:
+        st.error(f"Error creating note: {e}")
+        return None
+
+def update_note(note_id, title, content):
+    """Update an existing note"""
+    if not SUPABASE_AVAILABLE or not supabase:
+        return None
+    try:
+        response = supabase.table('notes').update({
+            'title': title,
+            'content': content,
+            'updated_at': 'now()'
+        }).eq('id', note_id).execute()
+        return response.data[0] if response.data else None
+    except Exception as e:
+        st.error(f"Error updating note: {e}")
+        return None
+
+def delete_note(note_id):
+    """Delete a note"""
+    if not SUPABASE_AVAILABLE or not supabase:
+        return False
+    try:
+        supabase.table('notes').delete().eq('id', note_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Error deleting note: {e}")
+        return False
+
+# --- EDGE TTS FUNCTIONS ---
+
+def get_voice_list():
+    """Get available voices for Edge TTS"""
+    return {
+        "🇲🇲 Myanmar (Thiha)": "my-MM-ThihaNeural",
+        "🇲🇲 Myanmar (Nilar)": "my-MM-NilarNeural",
+        "🇺🇸 English US (Jenny)": "en-US-JennyNeural",
+        "🇺🇸 English US (Guy)": "en-US-GuyNeural",
+        "🇬🇧 English UK (Sonia)": "en-GB-SoniaNeural",
+        "🇨🇳 Chinese (Xiaoxiao)": "zh-CN-XiaoxiaoNeural",
+        "🇯🇵 Japanese (Nanami)": "ja-JP-NanamiNeural",
+        "🇰🇷 Korean (SunHi)": "ko-KR-SunHiNeural",
+        "🇹🇭 Thai (Premwadee)": "th-TH-PremwadeeNeural",
+        "🇻🇳 Vietnamese (HoaiMy)": "vi-VN-HoaiMyNeural",
+    }
+
+async def generate_tts_async(text, voice, rate, output_path):
+    """Generate TTS audio using Edge TTS"""
+    rate_str = f"+{rate}%" if rate >= 0 else f"{rate}%"
+    communicate = edge_tts.Communicate(text, voice, rate=rate_str)
+    await communicate.save(output_path)
+
+def generate_tts(text, voice, rate=0):
+    """Wrapper for async TTS generation"""
+    if not EDGE_TTS_AVAILABLE:
+        return None, "Edge TTS not available"
+    
+    try:
+        output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+        asyncio.run(generate_tts_async(text, voice, rate, output_path))
+        return output_path, None
+    except Exception as e:
+        return None, str(e)
+
+# --- VIDEO PROCESSING FUNCTIONS ---
+
 def extract_file_id_from_url(url):
-    """Extract Google Drive file ID from various URL formats"""
+    """Extract Google Drive file ID"""
     try:
         if 'drive.google.com' in url:
             if '/file/d/' in url:
-                file_id = url.split('/file/d/')[1].split('/')[0].split('?')[0]
-                return file_id
+                return url.split('/file/d/')[1].split('/')[0].split('?')[0]
             elif 'id=' in url:
-                file_id = url.split('id=')[1].split('&')[0]
-                return file_id
+                return url.split('id=')[1].split('&')[0]
         return None
-    except Exception:
+    except:
         return None
 
 def download_video_from_url_gdown(url, progress_placeholder=None):
-    """Download video from Google Drive URL using gdown library"""
+    """Download video from Google Drive"""
     try:
         file_id = extract_file_id_from_url(url)
         if not file_id:
-            return None, "Invalid Google Drive URL format"
+            return None, "Invalid Google Drive URL"
         
         if progress_placeholder:
             progress_placeholder.info("📥 Downloading from Google Drive...")
@@ -501,50 +504,30 @@ def download_video_from_url_gdown(url, progress_placeholder=None):
         if GDOWN_AVAILABLE:
             output = gdown.download(gdrive_url, tmp_path, quiet=False, fuzzy=True)
             if output is None:
-                return None, "gdown download failed. Check if file is shared publicly."
+                return None, "Download failed. Check if file is shared publicly."
         else:
-            try:
-                result = subprocess.run(
-                    [sys.executable, "-m", "gdown", gdrive_url, "-O", tmp_path, "--fuzzy"],
-                    capture_output=True,
-                    text=True,
-                    timeout=600
-                )
-                if result.returncode != 0:
-                    return None, f"Download failed: {result.stderr}"
-            except subprocess.TimeoutExpired:
-                return None, "Download timed out (10 minutes)"
-            except FileNotFoundError:
-                return None, "gdown not installed. Add 'gdown' to requirements.txt"
+            return None, "gdown not available"
         
         if not os.path.exists(tmp_path):
-            return None, "Download failed - file not created"
+            return None, "Download failed"
         
         file_size = os.path.getsize(tmp_path)
         if file_size < 1000:
-            with open(tmp_path, 'rb') as f:
-                content = f.read(500)
-                if b'<!DOCTYPE' in content or b'<html' in content:
-                    os.remove(tmp_path)
-                    return None, "Google Drive returned error page. Ensure file is shared as 'Anyone with the link'."
             os.remove(tmp_path)
-            return None, "Downloaded file is too small - likely an error"
+            return None, "Downloaded file too small"
         
         if progress_placeholder:
-            size_mb = file_size / (1024 * 1024)
-            progress_placeholder.success(f"✅ Downloaded: {size_mb:.1f} MB")
+            progress_placeholder.success(f"✅ Downloaded: {file_size/(1024*1024):.1f} MB")
         
         return tmp_path, None
-        
     except Exception as e:
-        return None, f"Download error: {str(e)}"
+        return None, str(e)
 
 def download_video_from_url(url, progress_placeholder=None):
-    """Smart download using gdown"""
+    """Smart download"""
     if GDOWN_AVAILABLE:
         return download_video_from_url_gdown(url, progress_placeholder)
-    else:
-        return None, "gdown library not available. Please add 'gdown' to requirements.txt"
+    return None, "gdown not available"
 
 def save_uploaded_file_chunked(uploaded_file, progress_placeholder=None):
     """Save uploaded file in chunks"""
@@ -558,11 +541,10 @@ def save_uploaded_file_chunked(uploaded_file, progress_placeholder=None):
         uploaded_file.seek(0)
         
         if progress_placeholder:
-            progress_placeholder.info(f"💾 Saving file ({file_size / (1024*1024):.1f} MB)...")
+            progress_placeholder.info(f"💾 Saving file ({file_size/(1024*1024):.1f} MB)...")
         
         chunk_size = 10 * 1024 * 1024
         written = 0
-        
         progress_bar = st.progress(0)
         
         while True:
@@ -577,20 +559,18 @@ def save_uploaded_file_chunked(uploaded_file, progress_placeholder=None):
         progress_bar.empty()
         
         if progress_placeholder:
-            progress_placeholder.success(f"✅ File saved: {written / (1024*1024):.1f} MB")
+            progress_placeholder.success(f"✅ Saved: {written/(1024*1024):.1f} MB")
         
         return tmp_path, None
-        
     except Exception as e:
-        return None, f"Error saving file: {str(e)}"
+        return None, str(e)
 
 def upload_to_gemini(file_path, mime_type=None, progress_placeholder=None):
-    """Upload file to Gemini with status updates"""
+    """Upload to Gemini"""
     try:
         if progress_placeholder:
             file_size = os.path.getsize(file_path)
-            size_mb = file_size / (1024 * 1024)
-            progress_placeholder.info(f"📤 Uploading to Gemini ({size_mb:.1f} MB)...")
+            progress_placeholder.info(f"📤 Uploading to Gemini ({file_size/(1024*1024):.1f} MB)...")
         
         file = genai.upload_file(file_path, mime_type=mime_type)
         
@@ -598,10 +578,9 @@ def upload_to_gemini(file_path, mime_type=None, progress_placeholder=None):
         while file.state.name == "PROCESSING":
             wait_count += 1
             if progress_placeholder:
-                progress_placeholder.info(f"⏳ Gemini processing... ({wait_count * 2}s)")
+                progress_placeholder.info(f"⏳ Processing... ({wait_count * 2}s)")
             time.sleep(2)
             file = genai.get_file(file.name)
-            
             if wait_count > 300:
                 return None
         
@@ -614,234 +593,143 @@ def upload_to_gemini(file_path, mime_type=None, progress_placeholder=None):
         return file
     except Exception as e:
         if progress_placeholder:
-            progress_placeholder.error(f"❌ Upload Error: {e}")
+            progress_placeholder.error(f"❌ Error: {e}")
         return None
 
 def read_file_content(uploaded_file):
-    """Reads content from txt, pdf, or docx files"""
+    """Read file content"""
     try:
         file_type = uploaded_file.type
         
         if file_type == "text/plain":
             return uploaded_file.getvalue().decode("utf-8")
-        
-        elif file_type == "application/pdf":
-            if not PDF_AVAILABLE:
-                st.error("⚠️ PyPDF2 not installed.")
-                return None
+        elif file_type == "application/pdf" and PDF_AVAILABLE:
             reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.getvalue()))
-            text = ""
-            for page in reader.pages:
-                extracted = page.extract_text()
-                if extracted:
-                    text += extracted + "\n"
-            return text
-        
-        elif file_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-            if not DOCX_AVAILABLE:
-                st.error("⚠️ python-docx not installed.")
-                return None
+            return "\n".join([p.extract_text() or "" for p in reader.pages])
+        elif "wordprocessingml" in file_type and DOCX_AVAILABLE:
             doc = Document(io.BytesIO(uploaded_file.getvalue()))
-            text = "\n".join([para.text for para in doc.paragraphs])
-            return text
-        else:
-            st.warning(f"⚠️ Unsupported file type: {file_type}")
-            return None
-    except Exception as e:
-        st.error(f"Error reading file: {e}")
+            return "\n".join([p.text for p in doc.paragraphs])
+        return None
+    except:
         return None
 
 def cleanup_temp_file(file_path):
-    """Safely remove temporary file"""
+    """Remove temp file"""
     if file_path and os.path.exists(file_path):
         try:
             os.remove(file_path)
-        except Exception:
+        except:
             pass
 
 def get_response_text_safe(response):
-    """Safely extract text from Gemini response with proper error handling"""
+    """Safely extract text from Gemini response"""
     try:
-        # Check if response has candidates
-        if not response:
-            return None, "No response received from Gemini"
-        
-        if not response.candidates:
-            # Check for prompt feedback (content blocked)
-            if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
-                block_reason = getattr(response.prompt_feedback, 'block_reason', 'Unknown')
-                return None, f"Content blocked by Gemini: {block_reason}"
-            return None, "Empty response from Gemini (no candidates)"
+        if not response or not response.candidates:
+            return None, "Empty response"
         
         candidate = response.candidates[0]
+        if not hasattr(candidate, 'content') or not candidate.content.parts:
+            return None, "No content"
         
-        # Check finish reason
-        if hasattr(candidate, 'finish_reason'):
-            finish_reason = str(candidate.finish_reason)
-            if 'SAFETY' in finish_reason:
-                return None, "Content blocked due to safety filters"
-            if 'RECITATION' in finish_reason:
-                return None, "Content blocked due to recitation policy"
-        
-        # Check if content exists
-        if not hasattr(candidate, 'content') or not candidate.content:
-            return None, "Response has no content"
-        
-        # Check if parts exist
-        if not hasattr(candidate.content, 'parts') or not candidate.content.parts:
-            return None, "Response content has no parts"
-        
-        # Extract text from parts
-        text_parts = []
-        for part in candidate.content.parts:
-            if hasattr(part, 'text') and part.text:
-                text_parts.append(part.text)
-        
-        if not text_parts:
-            return None, "No text found in response parts"
-        
-        return "\n".join(text_parts), None
+        text_parts = [p.text for p in candidate.content.parts if hasattr(p, 'text') and p.text]
+        return "\n".join(text_parts) if text_parts else (None, "No text")
         
     except Exception as e:
-        return None, f"Error extracting response: {str(e)}"
+        return None, str(e)
 
 def call_gemini_api(model, content, timeout=600):
-    """Call Gemini API with retry logic and proper error handling"""
+    """Call Gemini API with retry"""
     max_retries = 3
-    base_delay = 10  # Increased base delay for rate limiting
+    base_delay = 10
     
     for attempt in range(max_retries):
         try:
             response = model.generate_content(content, request_options={"timeout": timeout})
-            
-            # Use safe extraction
             text, error = get_response_text_safe(response)
-            if error:
-                if attempt < max_retries - 1:
-                    st.warning(f"⚠️ {error}. Retrying...")
-                    time.sleep(base_delay)
-                    continue
-                return None, error
-            
+            if error and attempt < max_retries - 1:
+                time.sleep(base_delay)
+                continue
             return response, None
-            
         except Exception as e:
             error_str = str(e).lower()
-            
-            if 'rate' in error_str or 'quota' in error_str or '429' in error_str or 'resource' in error_str:
+            if any(x in error_str for x in ['rate', 'quota', '429', 'resource']):
                 if attempt < max_retries - 1:
                     delay = base_delay * (2 ** attempt)
-                    st.warning(f"⏳ Rate limited. Waiting {delay}s... (Attempt {attempt + 1}/{max_retries})")
+                    st.warning(f"⏳ Rate limited. Waiting {delay}s...")
                     time.sleep(delay)
                 else:
-                    return None, f"Rate limit exceeded after {max_retries} retries. Please wait a few minutes."
+                    return None, "Rate limit exceeded"
             else:
                 return None, str(e)
-    
     return None, "Max retries exceeded"
 
 def process_video_from_path(file_path, video_name, vision_model_name, writer_model_name, style_text="", custom_prompt="", status_placeholder=None):
-    """Process video from local file path with proper error handling"""
+    """Process video"""
     gemini_file = None
     try:
         if status_placeholder:
-            status_placeholder.info("📤 Step 1/3: Uploading video to Gemini...")
+            status_placeholder.info("📤 Step 1/3: Uploading...")
         
         gemini_file = upload_to_gemini(file_path, progress_placeholder=status_placeholder)
         if not gemini_file:
-            return None, "Failed to upload to Gemini"
+            return None, "Upload failed"
         
         if status_placeholder:
-            status_placeholder.info("👀 Step 2/3: AI analyzing video...")
+            status_placeholder.info("👀 Step 2/3: Analyzing...")
         
         vision_model = genai.GenerativeModel(vision_model_name)
-        vision_prompt = """
-        Watch this video carefully. 
-        Generate a highly detailed, chronological scene-by-scene description. (Use a storytelling tone.)
-        Include All the dialogue in the movie, visual details, emotions, and actions. (Use a storytelling tone.)
-        No creative writing yet, just facts.
-        """
+        vision_prompt = """Watch this video carefully. Generate a detailed scene-by-scene description with dialogue, emotions, and actions."""
         
         vision_response, error = call_gemini_api(vision_model, [gemini_file, vision_prompt], timeout=600)
         if error:
-            return None, f"Vision analysis failed: {error}"
+            return None, f"Vision failed: {error}"
         
-        video_description, error = get_response_text_safe(vision_response)
-        if error:
-            return None, f"Failed to get vision response: {error}"
-        
-        # Add delay between API calls to avoid rate limiting
+        video_description, _ = get_response_text_safe(vision_response)
         time.sleep(5)
         
         if status_placeholder:
-            status_placeholder.info("✍️ Step 3/3: Writing Burmese recap script...")
-        
-        custom_instructions = ""
-        if custom_prompt:
-            custom_instructions = f"\n\n**CUSTOM INSTRUCTIONS:**\n{custom_prompt}\n"
+            status_placeholder.info("✍️ Step 3/3: Writing script...")
         
         writer_model = genai.GenerativeModel(writer_model_name)
-        writer_prompt = f"""
-        You are a professional Burmese Movie Recap Scriptwriter.
-        Turn this description into an engaging **Burmese Movie Recap Script**.
+        writer_prompt = f"""You are a Burmese Movie Recap Scriptwriter.
         
-        **INPUT DATA:**
-        {video_description}
-        
-        {style_text}
-        {custom_instructions}
-        
-        **INSTRUCTIONS:**
-        1. Write in 100% Burmese.
-        2. Use a storytelling tone.
-        3. Cover the whole story.
-        4. Do not summarize too much; keep details.
-        5. Scene-by-scene.(Use a storytelling tone.) 
-        6. Full narration.                         
-        """
+**INPUT:** {video_description}
+{style_text}
+{f"**CUSTOM:** {custom_prompt}" if custom_prompt else ""}
+
+**INSTRUCTIONS:** Write in 100% Burmese, storytelling tone, scene-by-scene, full details."""
         
         final_response, error = call_gemini_api(writer_model, writer_prompt, timeout=600)
         if error:
-            return None, f"Script writing failed: {error}"
+            return None, f"Writing failed: {error}"
         
-        final_text, error = get_response_text_safe(final_response)
-        if error:
-            return None, f"Failed to get script: {error}"
-        
+        final_text, _ = get_response_text_safe(final_response)
         return final_text, None
         
     except Exception as e:
         return None, str(e)
-    
     finally:
         if gemini_file:
-            try: 
+            try:
                 genai.delete_file(gemini_file.name)
-            except Exception: 
+            except:
                 pass
         force_memory_cleanup()
 
 def process_video_from_url(url, video_name, vision_model_name, writer_model_name, style_text="", custom_prompt="", status_placeholder=None):
-    """Process video from URL with memory cleanup"""
+    """Process video from URL"""
     tmp_path = None
     try:
         if status_placeholder:
-            status_placeholder.info("📥 Downloading from Google Drive...")
+            status_placeholder.info("📥 Downloading...")
         
         tmp_path, error = download_video_from_url(url, status_placeholder)
+        if error:
+            return None, error
         
-        if error or not tmp_path:
-            return None, error or "Download failed"
-        
-        if status_placeholder:
-            status_placeholder.success("✅ Download complete!")
-        
-        script, error = process_video_from_path(tmp_path, video_name, vision_model_name, writer_model_name, style_text, custom_prompt, status_placeholder)
-        return script, error
-        
+        return process_video_from_path(tmp_path, video_name, vision_model_name, writer_model_name, style_text, custom_prompt, status_placeholder)
     except Exception as e:
         return None, str(e)
-    
     finally:
         cleanup_temp_file(tmp_path)
         force_memory_cleanup()
@@ -854,395 +742,193 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# --- LIBRARY STATUS CHECK ---
-missing_libs = []
-if not PDF_AVAILABLE:
-    missing_libs.append("PyPDF2")
-if not DOCX_AVAILABLE:
-    missing_libs.append("python-docx")
-if not GDOWN_AVAILABLE:
-    missing_libs.append("gdown")
+# --- LIBRARY STATUS ---
+missing = []
+if not PDF_AVAILABLE: missing.append("PyPDF2")
+if not DOCX_AVAILABLE: missing.append("python-docx")
+if not GDOWN_AVAILABLE: missing.append("gdown")
+if not SUPABASE_AVAILABLE: missing.append("supabase")
+if not EDGE_TTS_AVAILABLE: missing.append("edge-tts")
 
-if missing_libs:
-    st.warning(f"⚠️ Optional libraries missing: {', '.join(missing_libs)}. Add to requirements.txt.")
+if missing:
+    st.warning(f"⚠️ Missing: {', '.join(missing)}. Add to requirements.txt.")
 
 # --- TOP CONTROL BAR ---
 with st.container(border=True):
     col_api, col_vision, col_writer = st.columns([2, 1, 1])
     
     with col_api:
-        api_key = st.text_input("🔑 Google API Key", type="password", placeholder="Paste your API key here...", label_visibility="collapsed")
+        api_key = st.text_input("🔑 Google API Key", type="password", placeholder="Paste API key...", label_visibility="collapsed")
     
     with col_vision:
-        vision_model_name = st.selectbox(
-            "Vision Model",
-            [
-                "models/gemini-2.5-flash",
-                "models/gemini-2.5-pro",
-                "models/gemini-3-pro-preview",
-                "gemini-1.5-flash",
-                "gemini-1.5-pro",
-                "gemini-2.0-flash-exp",
-            ],
-            index=0,
-            help="Model for video analysis",
-            label_visibility="collapsed"
-        )
+        vision_model_name = st.selectbox("Vision", [
+            "models/gemini-2.5-flash",
+            "models/gemini-2.5-pro",
+            "gemini-1.5-flash",
+            "gemini-2.0-flash-exp",
+        ], label_visibility="collapsed")
     
     with col_writer:
-        writer_model_name = st.selectbox(
-            "Writer Model",
-            [
-                "gemini-1.5-flash",
-                "gemini-2.0-flash-exp",
-                "models/gemini-2.5-flash",
-                "models/gemini-3-pro-preview",
-                "gemini-1.5-pro",
-                "models/gemini-2.5-pro",
-            ],
-            index=0,
-            help="Model for script writing",
-            label_visibility="collapsed"
-        )
+        writer_model_name = st.selectbox("Writer", [
+            "gemini-1.5-flash",
+            "gemini-2.0-flash-exp",
+            "models/gemini-2.5-flash",
+            "models/gemini-2.5-pro",
+        ], label_visibility="collapsed")
     
     if api_key:
         try:
             genai.configure(api_key=api_key)
-        except Exception:
+        except:
             pass
 
 # --- TABS ---
-st.write("") 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎬 Movie Recap", "🌍 Translator", "🎨 Thumbnail AI", "✍️ Script Rewriter", "📰 AI News"])
+st.write("")
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "🎬 Movie Recap", 
+    "🌍 Translator", 
+    "🎨 Thumbnail", 
+    "✍️ Rewriter", 
+    "📰 AI News",
+    "📝 Note Pad",
+    "🔊 TTS"
+])
 
 # ==========================================
 # TAB 1: MOVIE RECAP
 # ==========================================
 with tab1:
-    st.write("")
     col_left, col_right = st.columns([1, 1], gap="medium")
 
     with col_left:
         with st.container(border=True):
-            st.subheader("📂 Add Videos to Queue")
+            st.subheader("📂 Add Videos")
             
-            upload_method = st.radio(
-                "Choose Input Method:",
-                ["📁 Upload Files (Local)", "🔗 Google Drive Links"],
-                horizontal=True
-            )
-            
+            upload_method = st.radio("Method:", ["📁 Local Files", "🔗 Google Drive"], horizontal=True)
             st.markdown("---")
             
-            if upload_method == "📁 Upload Files (Local)":
-                # WARNING for large files
-                st.warning("⚠️ **200MB Limit:** Files over 200MB will fail. Use Google Drive links for large files.")
+            if upload_method == "📁 Local Files":
+                st.warning("⚠️ Max 200MB per file. Use Google Drive for larger files.")
                 
-                st.info("📌 Upload videos (max 200MB per file)")
+                uploaded_videos = st.file_uploader("Videos", type=["mp4", "mkv", "mov"], accept_multiple_files=True, key="vid_upload")
                 
-                uploaded_videos = st.file_uploader(
-                    "Select Video Files",
-                    type=["mp4", "mkv", "mov"],
-                    accept_multiple_files=True,
-                    key="file_uploader"
-                )
-                
-                if st.button("➕ Add Files to Queue", use_container_width=True):
-                    if not uploaded_videos:
-                        st.warning("Please select video files!")
-                    else:
-                        available_slots = 10 - len(st.session_state['video_queue'])
-                        if available_slots <= 0:
-                            st.error("Queue is full! Maximum 10 videos.")
-                        else:
-                            files_to_add = uploaded_videos[:available_slots]
-                            added_count = 0
-                            
-                            for video in files_to_add:
-                                try:
-                                    # Check file size
-                                    video.seek(0, 2)
-                                    file_size = video.tell()
-                                    video.seek(0)
-                                    
-                                    if file_size > 200 * 1024 * 1024:  # 200MB
-                                        st.error(f"❌ {video.name} is too large ({file_size/(1024*1024):.0f}MB). Use Google Drive for files >200MB.")
-                                        continue
-                                    
-                                    status_msg = st.empty()
-                                    status_msg.info(f"💾 Saving {video.name}...")
-                                    
-                                    tmp_path, error = save_uploaded_file_chunked(video, status_msg)
-                                    
-                                    if error:
-                                        st.error(f"Failed to save {video.name}: {error}")
-                                        continue
-                                    
+                if st.button("➕ Add to Queue", use_container_width=True, key="add_files"):
+                    if uploaded_videos:
+                        for video in uploaded_videos[:10 - len(st.session_state['video_queue'])]:
+                            video.seek(0, 2)
+                            if video.tell() <= 200 * 1024 * 1024:
+                                video.seek(0)
+                                tmp_path, _ = save_uploaded_file_chunked(video)
+                                if tmp_path:
                                     st.session_state['video_queue'].append({
-                                        'name': video.name,
-                                        'source_type': 'file',
-                                        'file_path': tmp_path,
-                                        'url': None,
-                                        'status': 'waiting',
-                                        'script': None,
-                                        'error': None
+                                        'name': video.name, 'source_type': 'file',
+                                        'file_path': tmp_path, 'url': None,
+                                        'status': 'waiting', 'script': None, 'error': None
                                     })
-                                    added_count += 1
-                                    status_msg.empty()
-                                    
-                                except Exception as e:
-                                    st.error(f"Failed to add {video.name}: {e}")
-                            
-                            if added_count > 0:
-                                st.success(f"✅ Added {added_count} file(s) to queue!")
-                            
-                            force_memory_cleanup()
-                            st.rerun()
-            
+                        st.rerun()
             else:
-                st.success("✅ **Recommended for large files (1GB+)** - Uses gdown for reliable downloads")
-                st.info("📌 Paste Google Drive links (Max 10)")
-                st.markdown("""
-                <small style='opacity: 0.7;'>
-                💡 Make sure files are shared as "Anyone with link can view"
-                </small>
-                """, unsafe_allow_html=True)
+                st.success("✅ Recommended for large files")
+                links_input = st.text_area("Links (one per line)", height=150, key="links")
                 
-                links_input = st.text_area(
-                    "Video Links (One per line)",
-                    height=200,
-                    placeholder="https://drive.google.com/file/d/XXX/view\nhttps://drive.google.com/file/d/YYY/view",
-                    key="links_input"
-                )
-                
-                if st.button("➕ Add Links to Queue", use_container_width=True):
-                    if not links_input.strip():
-                        st.warning("Please paste video links!")
-                    else:
-                        raw_links = [link.strip() for link in links_input.split('\n') if link.strip()]
-                        available_slots = 10 - len(st.session_state['video_queue'])
-                        
-                        if available_slots <= 0:
-                            st.error("Queue is full! Maximum 10 videos.")
-                        else:
-                            links_to_add = raw_links[:available_slots]
-                            valid_count = 0
-                            
-                            for idx, link in enumerate(links_to_add):
-                                if 'drive.google.com' not in link:
-                                    st.warning(f"⚠️ Skipping invalid link: {link[:50]}...")
-                                    continue
-                                
-                                file_id = extract_file_id_from_url(link)
-                                if not file_id:
-                                    st.warning(f"⚠️ Could not extract file ID from: {link[:50]}...")
-                                    continue
-                                
+                if st.button("➕ Add to Queue", use_container_width=True, key="add_links"):
+                    if links_input.strip():
+                        for link in links_input.strip().split('\n')[:10 - len(st.session_state['video_queue'])]:
+                            if 'drive.google.com' in link and extract_file_id_from_url(link):
                                 st.session_state['video_queue'].append({
-                                    'name': f"Video_{len(st.session_state['video_queue']) + 1}",
-                                    'source_type': 'url',
-                                    'file_path': None,
-                                    'url': link,
-                                    'status': 'waiting',
-                                    'script': None,
-                                    'error': None
+                                    'name': f"Video_{len(st.session_state['video_queue'])+1}",
+                                    'source_type': 'url', 'file_path': None, 'url': link.strip(),
+                                    'status': 'waiting', 'script': None, 'error': None
                                 })
-                                valid_count += 1
-                            
-                            if valid_count > 0:
-                                st.success(f"✅ Added {valid_count} link(s) to queue!")
-                            st.rerun()
+                        st.rerun()
             
             st.markdown("---")
-            st.markdown("**⚙️ Settings**")
-            
-            # Show selected models
             st.caption(f"🔬 Vision: {vision_model_name.split('/')[-1]} | ✍️ Writer: {writer_model_name.split('/')[-1]}")
             
-            with st.expander("📝 Custom Instructions (Optional)", expanded=False):
-                custom_prompt = st.text_area(
-                    "Add your custom instructions here:",
-                    value=st.session_state.get('custom_prompt', ''),
-                    height=100,
-                    placeholder="Example: Focus on romantic scenes, Include character names...",
-                    key="custom_prompt_input"
-                )
-                if custom_prompt:
-                    st.session_state['custom_prompt'] = custom_prompt
-                    st.caption("✅ Custom instructions will be added")
+            with st.expander("📝 Custom Instructions"):
+                custom_prompt = st.text_area("Instructions:", value=st.session_state.get('custom_prompt', ''), height=80, key="custom")
+                st.session_state['custom_prompt'] = custom_prompt
             
-            style_file = st.file_uploader("📄 Writing Style Reference (Optional)", type=["txt", "pdf", "docx"], key="style_uploader")
-            
+            style_file = st.file_uploader("📄 Style Reference", type=["txt", "pdf", "docx"], key="style")
             if style_file:
-                extracted_style = read_file_content(style_file)
-                if extracted_style:
-                    style_text = f"\n\n**WRITING STYLE REFERENCE:**\n{extracted_style[:5000]}\n"
-                    st.session_state['style_text'] = style_text
-                    st.caption(f"✅ Style loaded: {style_file.name}")
+                content = read_file_content(style_file)
+                if content:
+                    st.session_state['style_text'] = f"\n**STYLE:**\n{content[:5000]}\n"
             
             st.markdown("---")
-            
             col_start, col_clear = st.columns(2)
             
             with col_start:
-                start_disabled = len(st.session_state['video_queue']) == 0 or st.session_state['processing_active']
-                if st.button("🚀 Start Processing", use_container_width=True, disabled=start_disabled):
-                    if not api_key:
-                        st.error("Please enter API Key above.")
-                    else:
+                if st.button("🚀 Start", use_container_width=True, disabled=not st.session_state['video_queue'] or st.session_state['processing_active']):
+                    if api_key:
                         st.session_state['processing_active'] = True
                         st.session_state['current_index'] = 0
                         st.rerun()
             
             with col_clear:
-                if st.button("🗑️ Clear Queue", use_container_width=True, disabled=len(st.session_state['video_queue']) == 0):
+                if st.button("🗑️ Clear", use_container_width=True, disabled=not st.session_state['video_queue']):
                     for item in st.session_state['video_queue']:
                         cleanup_temp_file(item.get('file_path'))
-                    
                     st.session_state['video_queue'] = []
                     st.session_state['processing_active'] = False
-                    st.session_state['current_index'] = 0
-                    force_memory_cleanup()
-                    st.success("Queue cleared!")
                     st.rerun()
 
     with col_right:
         with st.container(border=True):
-            st.subheader("📋 Processing Queue")
+            st.subheader("📋 Queue")
             
-            if len(st.session_state['video_queue']) == 0:
-                st.info("💡 Queue is empty. Add videos using files or links.")
-                st.markdown("""
-                **Two Ways to Add Videos:**
-                
-                **Method 1: Upload Files** 📁
-                - For files under 200MB only
-                - Larger files will fail (Streamlit limit)
-                
-                **Method 2: Google Drive Links** 🔗 ✅ Recommended
-                - Upload videos to Google Drive first
-                - Share → "Anyone with link can view"
-                - Supports large files (1GB+)
-                """)
+            if not st.session_state['video_queue']:
+                st.info("Add videos to start")
             else:
                 total = len(st.session_state['video_queue'])
                 completed = sum(1 for v in st.session_state['video_queue'] if v['status'] == 'completed')
-                failed = sum(1 for v in st.session_state['video_queue'] if v['status'] == 'failed')
-                waiting = sum(1 for v in st.session_state['video_queue'] if v['status'] == 'waiting')
                 
-                col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
-                with col_stat1:
-                    st.metric("Total", total)
-                with col_stat2:
-                    st.metric("Completed", completed)
-                with col_stat3:
-                    st.metric("Failed", failed)
-                with col_stat4:
-                    st.metric("Waiting", waiting)
-                
-                st.progress(completed / total if total > 0 else 0)
-                
-                st.markdown("---")
+                st.progress(completed / total if total else 0)
+                st.caption(f"✅ {completed}/{total} completed")
                 
                 for idx, item in enumerate(st.session_state['video_queue']):
-                    status_emoji = {
-                        'waiting': '⏳',
-                        'processing': '🔄',
-                        'completed': '✅',
-                        'failed': '❌'
-                    }
-                    
-                    source_icon = '📁' if item['source_type'] == 'file' else '🔗'
-                    css_class = item['status']
-                    
-                    st.markdown(f"""
-                    <div class='queue-item {css_class}'>
-                        <strong>{status_emoji[item['status']]} {source_icon} {idx + 1}. {item['name']}</strong>
-                        <br><small>Status: {item['status'].upper()}</small>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    emoji = {'waiting': '⏳', 'processing': '🔄', 'completed': '✅', 'failed': '❌'}[item['status']]
+                    st.markdown(f"**{emoji} {idx+1}. {item['name']}** - {item['status'].upper()}")
                     
                     if item['status'] == 'completed' and item['script']:
-                        filename = f"{item['name'].rsplit('.', 1)[0]}_recap.txt"
-                        st.download_button(
-                            f"📥 Download Script #{idx + 1}",
-                            item['script'],
-                            file_name=filename,
-                            key=f"download_{idx}"
-                        )
-                    
+                        st.download_button(f"📥 Download #{idx+1}", item['script'], f"{item['name']}_recap.txt", key=f"dl_{idx}")
                     if item['status'] == 'failed' and item['error']:
-                        st.error(f"Error: {item['error'][:300]}")
+                        st.error(item['error'][:200])
         
         if st.session_state['processing_active']:
-            current_idx = st.session_state['current_index']
-            
-            if current_idx < len(st.session_state['video_queue']):
-                current_item = st.session_state['video_queue'][current_idx]
-                
-                if current_item['status'] == 'waiting':
-                    st.session_state['video_queue'][current_idx]['status'] = 'processing'
+            idx = st.session_state['current_index']
+            if idx < len(st.session_state['video_queue']):
+                item = st.session_state['video_queue'][idx]
+                if item['status'] == 'waiting':
+                    st.session_state['video_queue'][idx]['status'] = 'processing'
                     
                     with st.container(border=True):
-                        st.markdown(f"### 🔄 Processing: {current_item['name']}")
+                        st.markdown(f"### 🔄 {item['name']}")
+                        status = st.empty()
                         
-                        status_placeholder = st.empty()
-                        style_text = st.session_state.get('style_text', "")
-                        custom_prompt = st.session_state.get('custom_prompt', "")
-                        
-                        if current_item['source_type'] == 'file':
+                        if item['source_type'] == 'file':
                             script, error = process_video_from_path(
-                                current_item['file_path'],
-                                current_item['name'],
-                                vision_model_name,
-                                writer_model_name,
-                                style_text,
-                                custom_prompt,
-                                status_placeholder
-                            )
-                            cleanup_temp_file(current_item['file_path'])
-                        
+                                item['file_path'], item['name'], vision_model_name, writer_model_name,
+                                st.session_state.get('style_text', ''), st.session_state.get('custom_prompt', ''), status)
+                            cleanup_temp_file(item['file_path'])
                         else:
                             script, error = process_video_from_url(
-                                current_item['url'],
-                                current_item['name'],
-                                vision_model_name,
-                                writer_model_name,
-                                style_text,
-                                custom_prompt,
-                                status_placeholder
-                            )
+                                item['url'], item['name'], vision_model_name, writer_model_name,
+                                st.session_state.get('style_text', ''), st.session_state.get('custom_prompt', ''), status)
                         
                         if script:
-                            st.session_state['video_queue'][current_idx]['status'] = 'completed'
-                            st.session_state['video_queue'][current_idx]['script'] = script
-                            status_placeholder.success(f"✅ Completed: {current_item['name']}")
-                            
-                            filename = f"{current_item['name'].rsplit('.', 1)[0]}_recap.txt"
-                            st.download_button(
-                                "📥 Download Now",
-                                script,
-                                file_name=filename,
-                                key=f"auto_dl_{current_idx}"
-                            )
+                            st.session_state['video_queue'][idx]['status'] = 'completed'
+                            st.session_state['video_queue'][idx]['script'] = script
+                            status.success("✅ Done!")
                         else:
-                            st.session_state['video_queue'][current_idx]['status'] = 'failed'
-                            st.session_state['video_queue'][current_idx]['error'] = error
-                            status_placeholder.error(f"❌ Failed: {current_item['name']}")
+                            st.session_state['video_queue'][idx]['status'] = 'failed'
+                            st.session_state['video_queue'][idx]['error'] = error
+                            status.error(f"❌ {error}")
                         
-                        # Add delay between videos to avoid rate limiting
-                        st.info("⏳ Waiting 10 seconds before next video (rate limit protection)...")
                         time.sleep(10)
-                        
                         st.session_state['current_index'] += 1
-                        force_memory_cleanup()
                         st.rerun()
-            
             else:
-                completed_count = sum(1 for v in st.session_state['video_queue'] if v['status'] == 'completed')
-                failed_count = sum(1 for v in st.session_state['video_queue'] if v['status'] == 'failed')
-                
-                st.success(f"🎉 All videos processed! ✅ {completed_count} completed, ❌ {failed_count} failed")
+                st.success("🎉 All done!")
                 st.balloons()
                 st.session_state['processing_active'] = False
 
@@ -1250,436 +936,365 @@ with tab1:
 # TAB 2: TRANSLATOR
 # ==========================================
 with tab2:
-    st.write("")
     c1, c2 = st.columns([1, 1], gap="medium")
     
     with c1:
         with st.container(border=True):
-            st.subheader("📄 Upload Media")
-            uploaded_file = st.file_uploader("File (.mp3, .mp4, .txt, .srt)", type=["mp3", "mp4", "txt", "srt"], key="translator_uploader")
-            if st.button("🚀 Translate Now", use_container_width=True):
-                if not api_key:
-                    st.error("⚠️ Please enter API Key first!")
-                elif not uploaded_file:
-                    st.warning("⚠️ Please upload a file first!")
-                else:
+            st.subheader("📄 Upload")
+            uploaded_file = st.file_uploader("File", type=["mp3", "mp4", "txt", "srt"], key="trans_file")
+            if st.button("🚀 Translate", use_container_width=True):
+                if api_key and uploaded_file:
                     st.session_state['run_translate'] = True
 
     with c2:
-        if st.session_state.get('run_translate') and uploaded_file and api_key:
-            with st.container(border=True):
-                st.subheader("📝 Output")
+        with st.container(border=True):
+            st.subheader("📝 Output")
+            if st.session_state.get('run_translate') and uploaded_file:
                 try:
-                    file_ext = uploaded_file.name.split('.')[-1].lower()
-                    if file_ext in ['txt', 'srt']:
-                        with st.spinner("📝 Translating text..."):
-                            text_content = uploaded_file.getvalue().decode("utf-8")
+                    ext = uploaded_file.name.split('.')[-1].lower()
+                    if ext in ['txt', 'srt']:
+                        with st.spinner("Translating..."):
+                            text = uploaded_file.getvalue().decode("utf-8")
                             model = genai.GenerativeModel(writer_model_name)
-                            res, error = call_gemini_api(model, f"Translate to **Burmese**. Return ONLY translated text.\nInput:\n{text_content}")
-                            if res and not error:
-                                text, _ = get_response_text_safe(res)
-                                if text:
-                                    st.text_area("Result", text, height=300)
-                                    st.download_button("📥 Download", text, file_name=f"trans_{uploaded_file.name}")
-                            else:
-                                st.error(f"Translation failed: {error}")
+                            res, _ = call_gemini_api(model, f"Translate to Burmese:\n{text}")
+                            if res:
+                                result, _ = get_response_text_safe(res)
+                                if result:
+                                    st.text_area("Result", result, height=300)
+                                    st.download_button("📥 Download", result, f"trans_{uploaded_file.name}")
                     else:
-                        with st.spinner("🎧 Listening & Translating..."):
-                            tmp_path, error = save_uploaded_file_chunked(uploaded_file)
-                            if error:
-                                st.error(f"Error: {error}")
-                            else:
+                        with st.spinner("Processing audio..."):
+                            tmp_path, _ = save_uploaded_file_chunked(uploaded_file)
+                            if tmp_path:
                                 gemini_file = upload_to_gemini(tmp_path)
                                 if gemini_file:
                                     model = genai.GenerativeModel(writer_model_name)
-                                    res, error = call_gemini_api(model, [gemini_file, "Generate full transcript in **Burmese**."], timeout=600)
-                                    if res and not error:
-                                        text, _ = get_response_text_safe(res)
-                                        if text:
-                                            st.text_area("Transcript", text, height=300)
-                                            st.download_button("📥 Download", text, file_name=f"{uploaded_file.name}_trans.txt")
-                                    else:
-                                        st.error(f"Transcription failed: {error}")
-                                    try: 
+                                    res, _ = call_gemini_api(model, [gemini_file, "Transcribe to Burmese"], timeout=600)
+                                    if res:
+                                        result, _ = get_response_text_safe(res)
+                                        if result:
+                                            st.text_area("Result", result, height=300)
+                                            st.download_button("📥 Download", result, f"{uploaded_file.name}_trans.txt")
+                                    try:
                                         genai.delete_file(gemini_file.name)
-                                    except: 
+                                    except:
                                         pass
                                 cleanup_temp_file(tmp_path)
-                            force_memory_cleanup()
-                            
-                except Exception as e: 
-                    st.error(f"Error: {e}")
+                except Exception as e:
+                    st.error(str(e))
                 st.session_state['run_translate'] = False
-        else:
-            with st.container(border=True):
-                st.info("💡 Upload a file and click 'Translate Now' to start.")
+            else:
+                st.info("Upload a file and click Translate")
 
 # ==========================================
-# TAB 3: THUMBNAIL AI
+# TAB 3: THUMBNAIL
 # ==========================================
 with tab3:
-    st.write("")
+    col_l, col_r = st.columns([1, 1], gap="medium")
     
-    col_thumb_left, col_thumb_right = st.columns([1, 1], gap="medium")
-    
-    with col_thumb_left:
+    with col_l:
         with st.container(border=True):
-            st.subheader("🎨 AI Thumbnail Generator")
-            st.markdown("<p style='opacity: 0.7;'>Gemini API နဲ့ Image Generate လုပ်ပါ</p>", unsafe_allow_html=True)
+            st.subheader("🎨 Generator")
             
-            st.markdown("**🖼️ Reference Image (Optional):**")
-            ref_image = st.file_uploader(
-                "Upload reference image",
-                type=["png", "jpg", "jpeg", "webp"],
-                key="thumb_ref_image"
-            )
-            
+            ref_image = st.file_uploader("Reference Image", type=["png", "jpg", "jpeg"], key="thumb_ref")
             if ref_image:
-                col_img_preview, _ = st.columns([1, 2])
-                with col_img_preview:
-                    st.image(ref_image, caption="Reference", width=150)
+                st.image(ref_image, width=150)
             
-            st.markdown("---")
-            
-            st.markdown("**📝 Quick Templates:**")
-            prompt_templates = {
-                "✍️ Custom Prompt": "",
-                "🎬 Movie Recap Thumbnail": "Create a dramatic YouTube movie recap thumbnail, 1280x720 pixels, with cinematic dark color grading, showing dramatic scene with emotional expressions, bold eye-catching title text, professional high contrast style",
-                "😱 Shocking/Dramatic Style": "Create a YouTube thumbnail with shocked surprised expression style, bright red and yellow accent colors, large bold text with outline, arrow pointing to key element, exaggerated expressions, 1280x720 pixels",
-                "🎭 Before/After Comparison": "Create a before and after comparison YouTube thumbnail, split screen design with clear dividing line, contrasting colors for each side, bold BEFORE and AFTER labels, 1280x720 pixels",
-                "🔥 Top 10 List Style": "Create a Top 10 list style YouTube thumbnail, large number prominently displayed, grid collage of related images, bright energetic colors, bold sans-serif title, 1280x720 pixels",
+            templates = {
+                "Custom": "",
+                "Movie Recap": "dramatic YouTube thumbnail, 1280x720, cinematic, emotional, bold text",
+                "Shocking": "YouTube thumbnail, shocked expression, red/yellow colors, bold text, 1280x720",
             }
             
-            selected_template = st.selectbox(
-                "Template ရွေးပါ:",
-                list(prompt_templates.keys()),
-                key="thumb_template"
-            )
+            template = st.selectbox("Template", list(templates.keys()))
+            prompt = st.text_area("Prompt", value=templates[template], height=100, key="thumb_prompt")
             
-            default_prompt = prompt_templates[selected_template]
-            user_prompt = st.text_area(
-                "🖼️ Image Prompt:",
-                value=default_prompt,
-                height=150,
-                placeholder="Describe the thumbnail you want to generate...",
-                key="thumb_prompt_input"
-            )
+            add_text = st.text_input("Text overlay", placeholder="EP.1, PART 2", key="thumb_text")
+            num_images = st.selectbox("Count", [1, 2, 3, 4], key="thumb_num")
             
-            st.markdown("**⚙️ Customization:**")
-            col_opt1, col_opt2 = st.columns(2)
-            
-            with col_opt1:
-                add_text = st.text_input(
-                    "Text on Image:",
-                    placeholder="e.g., EP.1, PART 2",
-                    key="thumb_text"
-                )
-            
-            with col_opt2:
-                num_images = st.selectbox(
-                    "Number of Images:",
-                    [1, 2, 3, 4],
-                    index=0,
-                    key="thumb_num"
-                )
-            
-            style_options = st.multiselect(
-                "Style Modifiers:",
-                ["Cinematic", "Dramatic Lighting", "High Contrast", "Vibrant Colors", "Dark Mood", "Professional", "YouTube Style", "4K Quality"],
-                default=["YouTube Style", "High Contrast"],
-                key="thumb_styles"
-            )
-            
-            st.markdown("---")
-            st.success("🎯 Using Gemini 3 Pro - မြန်မာဘာသာ caption ထည့်ရေးပေးနိုင်တယ်။")
-            
-            generate_clicked = st.button("🚀 Generate Thumbnail", use_container_width=True)
+            generate = st.button("🚀 Generate", use_container_width=True)
     
-    with col_thumb_right:
+    with col_r:
         with st.container(border=True):
-            st.subheader("🖼️ Generated Images")
+            st.subheader("🖼️ Results")
             
-            if generate_clicked:
-                if not api_key:
-                    st.error("⚠️ Please enter API Key first!")
-                elif not user_prompt.strip():
-                    st.warning("⚠️ Please enter a prompt!")
-                else:
-                    st.session_state['generated_images'] = []
-                    
-                    final_prompt = user_prompt.strip()
-                    if add_text:
-                        final_prompt += f", with bold text overlay showing '{add_text}'"
-                    if style_options:
-                        final_prompt += f", style: {', '.join(style_options)}"
-                    final_prompt += ", high quality, detailed, sharp focus"
-                    
-                    st.info("🎨 Using Gemini 3 Pro...")
-                    st.markdown(f"**Prompt:** {final_prompt[:200]}...")
-                    
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
-                    
-                    generated_images = []
-                    
-                    try:
-                        image_model = genai.GenerativeModel("models/gemini-3-pro-image-preview")
-                        
-                        for i in range(num_images):
-                            try:
-                                status_text.info(f"🔄 Generating image {i+1}/{num_images}...")
-                                progress_bar.progress((i) / num_images)
-                                
-                                generation_prompt = f"Generate an image: {final_prompt}"
-                                
-                                if ref_image:
-                                    ref_image.seek(0)
-                                    ref_img = Image.open(ref_image)
-                                    response = image_model.generate_content(
-                                        [generation_prompt, ref_img],
-                                        request_options={"timeout": 180}
-                                    )
-                                else:
-                                    response = image_model.generate_content(
-                                        generation_prompt,
-                                        request_options={"timeout": 180}
-                                    )
-                                
-                                image_found = False
-                                if response.candidates:
-                                    for part in response.candidates[0].content.parts:
-                                        if hasattr(part, 'inline_data') and part.inline_data:
-                                            generated_images.append({
-                                                'data': part.inline_data.data,
-                                                'mime_type': part.inline_data.mime_type,
-                                                'index': i + 1
-                                            })
-                                            image_found = True
-                                            status_text.success(f"✅ Image {i+1} generated!")
-                                            break
-                                
-                                if not image_found:
-                                    status_text.warning(f"⚠️ Image {i+1}: No image generated.")
-                                
-                                if i < num_images - 1:
-                                    time.sleep(2)
-                                    
-                            except Exception as e:
-                                status_text.error(f"⚠️ Image {i+1} failed: {str(e)[:150]}")
-                                continue
-                        
-                        progress_bar.progress(1.0)
-                        st.session_state['generated_images'] = generated_images
-                        
-                        if generated_images:
-                            status_text.success(f"🎉 Done! Generated {len(generated_images)}/{num_images} image(s)")
-                        else:
-                            status_text.error("❌ No images were generated.")
-                    
-                    except Exception as e:
-                        st.error(f"❌ Generation Error: {e}")
-            
-            if st.session_state['generated_images']:
-                st.markdown("---")
-                for idx, img_data in enumerate(st.session_state['generated_images']):
-                    st.markdown(f"**Image {img_data['index']}:**")
-                    st.image(img_data['data'], use_container_width=True)
-                    
-                    file_ext = "png" if "png" in img_data.get('mime_type', 'png') else "jpg"
-                    st.download_button(
-                        f"📥 Download Image {img_data['index']}",
-                        img_data['data'],
-                        file_name=f"thumbnail_{idx+1}.{file_ext}",
-                        mime=img_data.get('mime_type', 'image/png'),
-                        key=f"dl_thumb_{idx}_{time.time()}"
-                    )
-                    st.markdown("---")
-                
-                if st.button("🗑️ Clear All Images", use_container_width=True, key="clear_thumb"):
-                    st.session_state['generated_images'] = []
-                    st.rerun()
-            
-            elif not generate_clicked:
-                st.info("💡 Enter a prompt and click 'Generate Thumbnail' to create images.")
-
-# ==========================================
-# TAB 4: SCRIPT REWRITER
-# ==========================================
-with tab4:
-    st.write("")
-    col_re_1, col_re_2 = st.columns([1, 1], gap="medium")
-    
-    with col_re_1:
-        with st.container(border=True):
-            st.subheader("✍️ Style & Source")
-            
-            rewrite_style_file = st.file_uploader("1. Upload Writing Style", type=["txt", "pdf", "docx"], key="rewrite_style_uploader")
-            original_script = st.text_area("2. Paste Original Script Here", height=300, placeholder="Paste the script you want to rewrite...")
-            
-            if st.button("✨ Rewrite Script", use_container_width=True):
-                if not api_key:
-                    st.error("⚠️ API Key Missing!")
-                elif not original_script:
-                    st.warning("⚠️ Please paste the original script.")
-                else:
-                    st.session_state['run_rewrite'] = True
-
-    with col_re_2:
-        if st.session_state.get('run_rewrite'):
-            with st.container(border=True):
-                st.subheader("📝 Rewritten Output")
+            if generate and api_key and prompt:
+                st.session_state['generated_images'] = []
+                final_prompt = prompt + (f", text: '{add_text}'" if add_text else "") + ", high quality"
                 
                 try:
-                    style_content_rewrite = "Standard Professional Tone"
+                    model = genai.GenerativeModel("models/gemini-3-pro-image-preview")
                     
-                    if rewrite_style_file:
-                        with st.spinner("📖 Reading Style File..."):
-                            extracted_text = read_file_content(rewrite_style_file)
-                            if extracted_text:
-                                style_content_rewrite = extracted_text
-                                st.success(f"✅ Loaded style from {rewrite_style_file.name}")
-
-                    with st.spinner("🤖 Rewriting..."):
-                        rewrite_model = genai.GenerativeModel(writer_model_name)
+                    for i in range(num_images):
+                        st.info(f"Generating {i+1}/{num_images}...")
                         
-                        rewrite_prompt = f"""
-                        You are an expert Script Editor.
-                        
-                        **TASK:** Rewrite the ORIGINAL SCRIPT using the TARGET WRITING STYLE.
-                        
-                        **RULES:**
-                        1. NO SUMMARIZATION - keep all details
-                        2. 100% CONTENT PRESERVATION
-                        3. MATCH STYLE strictly
-                        4. OUTPUT: Burmese (Myanmar)
-                        
-                        **TARGET STYLE:**
-                        {style_content_rewrite[:5000]} 
-                        
-                        **ORIGINAL SCRIPT:**
-                        {original_script}
-                        """
-                        
-                        rewrite_response, error = call_gemini_api(rewrite_model, rewrite_prompt)
-                        
-                        if rewrite_response and not error:
-                            text, _ = get_response_text_safe(rewrite_response)
-                            if text:
-                                st.success("✅ Rewrite Complete!")
-                                st.text_area("Result", text, height=500)
-                                st.download_button("📥 Download", text, file_name="rewritten_script.txt")
-                            else:
-                                st.error("❌ Failed to extract rewritten text.")
+                        if ref_image:
+                            ref_image.seek(0)
+                            img = Image.open(ref_image)
+                            response = model.generate_content([f"Generate: {final_prompt}", img], request_options={"timeout": 180})
                         else:
-                            st.error(f"❌ Rewrite failed: {error}")
+                            response = model.generate_content(f"Generate: {final_prompt}", request_options={"timeout": 180})
                         
+                        if response.candidates:
+                            for part in response.candidates[0].content.parts:
+                                if hasattr(part, 'inline_data') and part.inline_data:
+                                    st.session_state['generated_images'].append({
+                                        'data': part.inline_data.data,
+                                        'mime': part.inline_data.mime_type,
+                                        'idx': i + 1
+                                    })
+                                    break
+                        time.sleep(2)
+                    
+                    st.success(f"Generated {len(st.session_state['generated_images'])} images")
                 except Exception as e:
-                    st.error(f"Error: {e}")
-                
-                st.session_state['run_rewrite'] = False
-        else:
-            with st.container(border=True):
-                st.info("💡 Paste a script and upload a style to rewrite.")
+                    st.error(str(e))
+            
+            for img in st.session_state.get('generated_images', []):
+                st.image(img['data'], use_container_width=True)
+                st.download_button(f"📥 Download {img['idx']}", img['data'], f"thumb_{img['idx']}.png", key=f"dl_img_{img['idx']}_{time.time()}")
+
+# ==========================================
+# TAB 4: REWRITER
+# ==========================================
+with tab4:
+    c1, c2 = st.columns([1, 1], gap="medium")
+    
+    with c1:
+        with st.container(border=True):
+            st.subheader("✍️ Input")
+            style_file = st.file_uploader("Style Reference", type=["txt", "pdf", "docx"], key="rewrite_style")
+            original = st.text_area("Original Script", height=300, key="original_script")
+            rewrite = st.button("✨ Rewrite", use_container_width=True)
+
+    with c2:
+        with st.container(border=True):
+            st.subheader("📝 Output")
+            if rewrite and api_key and original:
+                try:
+                    style = read_file_content(style_file) if style_file else "Professional tone"
+                    
+                    with st.spinner("Rewriting..."):
+                        model = genai.GenerativeModel(writer_model_name)
+                        prompt = f"""Rewrite in TARGET STYLE. Keep all details. Output: Burmese.
+                        
+**STYLE:** {style[:5000]}
+
+**ORIGINAL:** {original}"""
+                        
+                        res, error = call_gemini_api(model, prompt)
+                        if res:
+                            text, _ = get_response_text_safe(res)
+                            if text:
+                                st.text_area("Result", text, height=400)
+                                st.download_button("📥 Download", text, "rewritten.txt")
+                        else:
+                            st.error(error)
+                except Exception as e:
+                    st.error(str(e))
+            else:
+                st.info("Paste script and click Rewrite")
 
 # ==========================================
 # TAB 5: AI NEWS
 # ==========================================
 with tab5:
-    st.write("")
-    
     with st.container(border=True):
-        st.subheader("📰 AI News - နောက်ဆုံးရ AI သတင်းများ")
-        st.markdown("နာမည်ကြီး AI Companies များရဲ့ နောက်ဆုံးရ သတင်းများကို Gemini နဲ့ ရှာဖွေပြသပေးပါတယ်။")
+        st.subheader("📰 AI News")
         
-        col_news_btn, col_news_status = st.columns([1, 2])
-        
-        with col_news_btn:
-            fetch_news = st.button("🔄 Refresh AI News", use_container_width=True)
-        
-        with col_news_status:
-            # Show cache status
-            if st.session_state.get('ai_news_timestamp'):
-                st.caption(f"Last updated: {st.session_state['ai_news_timestamp']}")
-        
-        st.markdown("---")
-        
-        if fetch_news:
-            if not api_key:
-                st.error("⚠️ Please enter API Key first!")
-            else:
-                with st.spinner("🔍 Fetching latest AI news..."):
+        if st.button("🔄 Refresh", use_container_width=True):
+            if api_key:
+                with st.spinner("Fetching..."):
                     try:
-                        news_model = genai.GenerativeModel(writer_model_name)
+                        model = genai.GenerativeModel(writer_model_name)
+                        prompt = """Latest AI news about: OpenAI, Google Gemini, Anthropic Claude, Meta Llama, Microsoft Copilot, Stability AI, Midjourney.
                         
-                        news_prompt = """
-                        You are an AI news reporter. Please provide the latest news and updates about major AI companies and their products.
+For each: product updates, new features, pricing changes. Be concise."""
                         
-                        Cover these companies/products:
-                        1. OpenAI (ChatGPT, GPT-4, GPT-5, Sora)
-                        2. Google (Gemini, Bard, DeepMind)
-                        3. Anthropic (Claude)
-                        4. Meta (Llama, AI features)
-                        5. Microsoft (Copilot, Azure AI)
-                        6. Stability AI (Stable Diffusion)
-                        7. Midjourney
-                        8. Other notable AI news
-                        
-                        For each company, provide:
-                        - Latest product updates or releases
-                        - New features announced
-                        - Important news or changes
-                        - Pricing changes if any
-                        
-                        Format: Use clear headers for each company. Keep it concise but informative.
-                        Write in English.
-                        Include approximate dates if known.
-                        """
-                        
-                        response, error = call_gemini_api(news_model, news_prompt, timeout=120)
-                        
-                        if response and not error:
-                            news_text, _ = get_response_text_safe(response)
-                            if news_text:
-                                st.session_state['ai_news_cache'] = news_text
-                                st.session_state['ai_news_timestamp'] = time.strftime("%Y-%m-%d %H:%M:%S")
-                                st.success("✅ News updated!")
-                            else:
-                                st.error("Failed to get news content")
-                        else:
-                            st.error(f"Failed to fetch news: {error}")
-                            
+                        res, _ = call_gemini_api(model, prompt, timeout=120)
+                        if res:
+                            text, _ = get_response_text_safe(res)
+                            if text:
+                                st.session_state['ai_news_cache'] = text
+                                st.session_state['ai_news_timestamp'] = time.strftime("%Y-%m-%d %H:%M")
                     except Exception as e:
-                        st.error(f"Error fetching news: {e}")
+                        st.error(str(e))
         
-        # Display cached news
+        if st.session_state.get('ai_news_timestamp'):
+            st.caption(f"Updated: {st.session_state['ai_news_timestamp']}")
+        
         if st.session_state.get('ai_news_cache'):
             st.markdown(st.session_state['ai_news_cache'])
         else:
-            st.info("👆 Click 'Refresh AI News' to fetch the latest AI news and updates.")
+            st.info("Click Refresh to fetch latest AI news")
+
+# ==========================================
+# TAB 6: NOTE PAD (SUPABASE)
+# ==========================================
+with tab6:
+    with st.container(border=True):
+        st.subheader("📝 Note Pad")
+        
+        if not api_key:
+            st.warning("🔐 API Key ထည့်မှ Notes သုံးလို့ရမယ်")
+            st.info("သင့် API Key က သင့် Notes တွေကို access လုပ်ဖို့ password အနေနဲ့ အလုပ်လုပ်ပါတယ်။")
+        elif not SUPABASE_AVAILABLE:
+            st.error("❌ Supabase not available. Add 'supabase' to requirements.txt")
+        else:
+            user_hash = get_user_hash(api_key)
             
-            # Show placeholder content
-            st.markdown("""
-            **📌 Covered AI Companies:**
+            col_list, col_edit = st.columns([1, 2], gap="medium")
             
-            - 🤖 **OpenAI** - ChatGPT, GPT-4, GPT-5, Sora
-            - 🔷 **Google** - Gemini, DeepMind
-            - 🟠 **Anthropic** - Claude
-            - 🔵 **Meta** - Llama, AI features
-            - 🟦 **Microsoft** - Copilot, Azure AI
-            - 🎨 **Stability AI** - Stable Diffusion
-            - 🖼️ **Midjourney**
-            - 📰 **Other AI News**
-            """)
+            with col_list:
+                st.markdown("**📋 My Notes**")
+                
+                # Create new note button
+                if st.button("➕ New Note", use_container_width=True):
+                    new_note = create_note(user_hash, "Untitled Note", "")
+                    if new_note:
+                        st.session_state['current_note_id'] = new_note['id']
+                        st.rerun()
+                
+                st.markdown("---")
+                
+                # List notes
+                notes = get_notes(user_hash)
+                
+                if not notes:
+                    st.info("No notes yet. Create one!")
+                else:
+                    for note in notes:
+                        col_note, col_del = st.columns([4, 1])
+                        with col_note:
+                            if st.button(f"📄 {note['title'][:30]}", key=f"note_{note['id']}", use_container_width=True):
+                                st.session_state['current_note_id'] = note['id']
+                                st.rerun()
+                        with col_del:
+                            if st.button("🗑️", key=f"del_{note['id']}"):
+                                delete_note(note['id'])
+                                if st.session_state.get('current_note_id') == note['id']:
+                                    st.session_state['current_note_id'] = None
+                                st.rerun()
+            
+            with col_edit:
+                st.markdown("**✏️ Editor**")
+                
+                current_id = st.session_state.get('current_note_id')
+                
+                if current_id:
+                    # Find current note
+                    current_note = next((n for n in notes if n['id'] == current_id), None)
+                    
+                    if current_note:
+                        # Edit form
+                        new_title = st.text_input("Title", value=current_note['title'], key="note_title")
+                        new_content = st.text_area("Content", value=current_note['content'] or "", height=400, key="note_content")
+                        
+                        col_save, col_info = st.columns([1, 2])
+                        with col_save:
+                            if st.button("💾 Save", use_container_width=True):
+                                update_note(current_id, new_title, new_content)
+                                st.success("✅ Saved!")
+                                time.sleep(1)
+                                st.rerun()
+                        with col_info:
+                            st.caption(f"Last updated: {current_note.get('updated_at', 'N/A')[:19]}")
+                    else:
+                        st.session_state['current_note_id'] = None
+                        st.rerun()
+                else:
+                    st.info("👈 Select a note or create new one")
+
+# ==========================================
+# TAB 7: TEXT-TO-SPEECH (EDGE TTS)
+# ==========================================
+with tab7:
+    with st.container(border=True):
+        st.subheader("🔊 Text-to-Speech")
+        
+        if not EDGE_TTS_AVAILABLE:
+            st.error("❌ Edge TTS not available. Add 'edge-tts' to requirements.txt")
+        else:
+            col_input, col_output = st.columns([1, 1], gap="medium")
+            
+            with col_input:
+                st.markdown("**📝 Input Text**")
+                
+                # Text input
+                tts_text = st.text_area("Enter text to convert:", height=300, placeholder="ဒီမှာ စာသားထည့်ပါ...", key="tts_text")
+                
+                # Upload text file
+                tts_file = st.file_uploader("Or upload text file", type=["txt"], key="tts_file")
+                if tts_file:
+                    tts_text = tts_file.getvalue().decode("utf-8")
+                    st.text_area("File content:", value=tts_text, height=200, disabled=True)
+                
+                st.markdown("---")
+                st.markdown("**⚙️ Settings**")
+                
+                voices = get_voice_list()
+                selected_voice_name = st.selectbox("Voice:", list(voices.keys()), key="tts_voice")
+                selected_voice = voices[selected_voice_name]
+                
+                rate = st.slider("Speed:", min_value=-50, max_value=50, value=0, format="%d%%", key="tts_rate")
+                
+                st.caption(f"Characters: {len(tts_text)}")
+            
+            with col_output:
+                st.markdown("**🎧 Output**")
+                
+                if st.button("🔊 Generate Audio", use_container_width=True):
+                    if tts_text.strip():
+                        with st.spinner("Generating audio..."):
+                            audio_path, error = generate_tts(tts_text, selected_voice, rate)
+                            
+                            if audio_path and os.path.exists(audio_path):
+                                st.session_state['tts_audio'] = audio_path
+                                st.success("✅ Audio generated!")
+                            else:
+                                st.error(f"❌ Error: {error}")
+                    else:
+                        st.warning("Please enter some text")
+                
+                # Display audio player
+                if st.session_state.get('tts_audio') and os.path.exists(st.session_state['tts_audio']):
+                    st.markdown("---")
+                    st.markdown("**▶️ Preview:**")
+                    
+                    with open(st.session_state['tts_audio'], 'rb') as f:
+                        audio_bytes = f.read()
+                    
+                    st.audio(audio_bytes, format='audio/mp3')
+                    
+                    st.download_button(
+                        "📥 Download MP3",
+                        audio_bytes,
+                        file_name="tts_audio.mp3",
+                        mime="audio/mp3",
+                        use_container_width=True
+                    )
+                    
+                    if st.button("🗑️ Clear Audio", use_container_width=True):
+                        cleanup_temp_file(st.session_state['tts_audio'])
+                        st.session_state['tts_audio'] = None
+                        st.rerun()
+                else:
+                    st.info("Enter text and click Generate to create audio")
+                
+                st.markdown("---")
+                st.markdown("**💡 Tips:**")
+                st.markdown("""
+                - 🇲🇲 Myanmar voices အတွက် မြန်မာစာ ရေးပါ
+                - 🇺🇸 English voices အတွက် English ရေးပါ
+                - Speed: -50% (နှေး) to +50% (မြန်)
+                - Free & Unlimited! 🎉
+                """)
 
 # --- FOOTER ---
 st.markdown("""
 <div style='text-align: center; margin-top: 3rem; padding: 1.5rem 0; border-top: 1px solid rgba(0, 255, 100, 0.1);'>
-    <p style='color: rgba(0, 255, 100, 0.4) !important; font-size: 0.85rem; margin: 0; font-family: "Share Tech Mono", monospace; letter-spacing: 1px;'>
-        ✨ ULTIMATE AI STUDIO • POWERED BY GOOGLE GEMINI • ENTER THE MATRIX
+    <p style='color: rgba(0, 255, 100, 0.4) !important; font-size: 0.85rem; font-family: "Share Tech Mono", monospace;'>
+        ✨ ULTIMATE AI STUDIO v3.0 • POWERED BY GEMINI + SUPABASE + EDGE TTS
     </p>
 </div>
 """, unsafe_allow_html=True)
-
-
-
-
