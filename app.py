@@ -126,7 +126,15 @@ st.markdown("""
     
     header, #MainMenu, footer { visibility: hidden; }
     
-    .main .block-container { max-width: 1500px !important; padding: 2rem !important; }
+    /* Force 1500px max width */
+    .main .block-container { 
+        max-width: 1500px !important; 
+        padding: 2rem !important;
+        margin: 0 auto !important;
+    }
+    
+    section.main > div { max-width: 1500px !important; }
+    .stApp > header + div > div { max-width: 1500px !important; }
     
     div[data-testid="stVerticalBlockBorderWrapper"] > div {
         background: linear-gradient(145deg, rgba(0, 40, 20, 0.85), rgba(10, 30, 15, 0.9)) !important;
@@ -437,7 +445,7 @@ with st.container(border=True):
         except: pass
 
 # --- TABS ---
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["🎬 Recap", "🌍 Translator", "🎨 Thumbnail", "✍️ Rewriter", "📝 Notes", "🔊 TTS", "🎬 Editor"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["🎬 Recap", "🌍 Translator", "🎨 Thumbnail", "✍️ Rewriter", "📝 Notes", "🔊 TTS", "📝 Script Editor"])
 
 # === TAB 1: MOVIE RECAP ===
 with tab1:
@@ -866,149 +874,183 @@ with tab6:
                 else:
                     st.info("Enter text and generate")
 
-# === TAB 7: EDITOR MODE (with drag-drop video) ===
+# === TAB 7: SCRIPT EDITOR (Full Featured) ===
 with tab7:
     with st.container(border=True):
-        st.subheader("🎬 Editor Mode")
-        st.caption("Script editing with video player - side by side")
+        st.subheader("📝 Script Editor")
+        st.caption("Professional script editing with auto-save and multiple formats")
         
-        # Slider for panel ratio
-        ratio = st.slider("📐 Panel Ratio (Script : Video)", 20, 80, 50, 5, key="editor_ratio")
+        # Top toolbar
+        tool_col1, tool_col2, tool_col3, tool_col4, tool_col5 = st.columns([1, 1, 1, 1, 1])
+        
+        with tool_col1:
+            # Open file
+            script_file = st.file_uploader(
+                "📂 Open",
+                type=["txt", "docx", "srt", "md"],
+                key="script_open",
+                label_visibility="collapsed",
+                help="Open .txt, .docx, .srt, .md files"
+            )
+        
+        with tool_col2:
+            if st.button("📋 New", use_container_width=True, help="Create new empty script"):
+                st.session_state['editor_script'] = ""
+                st.session_state['editor_filename'] = "untitled.txt"
+                st.rerun()
+        
+        with tool_col3:
+            if st.button("🔄 Clear", use_container_width=True, help="Clear all content"):
+                st.session_state['editor_script'] = ""
+                st.rerun()
+        
+        with tool_col4:
+            # Save format selection
+            save_format = st.selectbox(
+                "Format",
+                ["txt", "srt", "md"],
+                key="save_format",
+                label_visibility="collapsed",
+                help="Choose save format"
+            )
+        
+        with tool_col5:
+            # Download button
+            if st.session_state.get('editor_script'):
+                filename = st.session_state.get('editor_filename', 'script')
+                base_name = filename.rsplit('.', 1)[0] if '.' in filename else filename
+                st.download_button(
+                    "💾 Save",
+                    st.session_state['editor_script'],
+                    file_name=f"{base_name}.{save_format}",
+                    mime="text/plain",
+                    use_container_width=True,
+                    help=f"Download as {save_format}"
+                )
+            else:
+                st.button("💾 Save", disabled=True, use_container_width=True)
         
         st.markdown("---")
         
-        # Create columns based on ratio
-        script_col, video_col = st.columns([ratio, 100-ratio])
-        
-        with script_col:
-            st.markdown("### 📝 Script Editor")
-            
-            # File operations
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                script_file = st.file_uploader("📂 Open", type=["txt", "docx"], key="ed_open", label_visibility="collapsed")
-            with col2:
-                if st.button("📋 Clear", use_container_width=True):
-                    st.session_state['editor_script'] = ""
-                    st.rerun()
-            with col3:
-                if st.session_state.get('editor_script'):
-                    st.download_button("💾 Save", st.session_state['editor_script'], "script.txt", use_container_width=True)
-            
-            # Load file content
-            if script_file:
-                if script_file.type == "text/plain":
+        # Load file content if uploaded
+        if script_file:
+            try:
+                if script_file.type == "text/plain" or script_file.name.endswith(('.txt', '.srt', '.md')):
                     st.session_state['editor_script'] = script_file.getvalue().decode("utf-8")
-                elif DOCX_AVAILABLE:
+                elif DOCX_AVAILABLE and "wordprocessingml" in script_file.type:
                     content = read_file_content(script_file)
                     if content:
                         st.session_state['editor_script'] = content
+                st.session_state['editor_filename'] = script_file.name
+                st.success(f"✅ Loaded: {script_file.name}")
+            except Exception as e:
+                st.error(f"Error loading file: {e}")
+        
+        # Main editor area - two columns
+        editor_col, info_col = st.columns([3, 1])
+        
+        with editor_col:
+            # Large text editor
+            current_script = st.session_state.get('editor_script', '')
             
-            # Text editor
             new_script = st.text_area(
-                "Edit script here:",
-                value=st.session_state.get('editor_script', ''),
-                height=500,
-                key="ed_script",
-                label_visibility="collapsed"
+                "Script Content",
+                value=current_script,
+                height=550,
+                key="script_editor_main",
+                label_visibility="collapsed",
+                placeholder="ဒီမှာ script ရေးပါ သို့မဟုတ် ဖိုင်ဖွင့်ပါ...\n\nWrite your script here or open a file..."
             )
-            st.session_state['editor_script'] = new_script
+            
+            # Auto-save to session state
+            if new_script != current_script:
+                st.session_state['editor_script'] = new_script
+        
+        with info_col:
+            # Statistics panel
+            st.markdown("**📊 Statistics**")
+            
+            script_text = st.session_state.get('editor_script', '')
             
             # Word count
-            words = len(new_script.split()) if new_script else 0
-            chars = len(new_script) if new_script else 0
-            st.caption(f"📊 Words: {words} | Characters: {chars}")
+            words = len(script_text.split()) if script_text.strip() else 0
+            st.metric("Words", f"{words:,}")
             
-            # Google Docs link
+            # Character count
+            chars = len(script_text)
+            st.metric("Characters", f"{chars:,}")
+            
+            # Line count
+            lines = len(script_text.split('\n')) if script_text else 0
+            st.metric("Lines", f"{lines:,}")
+            
+            # Paragraph count
+            paragraphs = len([p for p in script_text.split('\n\n') if p.strip()]) if script_text else 0
+            st.metric("Paragraphs", f"{paragraphs:,}")
+            
             st.markdown("---")
-            st.markdown("[📝 Open Google Docs](https://docs.google.com/document/create) to save online")
+            
+            # Estimated reading time
+            reading_time = max(1, words // 200)  # ~200 words per minute
+            st.markdown(f"**⏱️ Reading Time**")
+            st.caption(f"~{reading_time} min")
+            
+            # Speaking time (for narration)
+            speaking_time = max(1, words // 150)  # ~150 words per minute for narration
+            st.markdown(f"**🎙️ Narration Time**")
+            st.caption(f"~{speaking_time} min")
+            
+            st.markdown("---")
+            
+            # Quick tools
+            st.markdown("**🛠️ Quick Tools**")
+            
+            if st.button("🔠 UPPERCASE", use_container_width=True, key="tool_upper"):
+                if st.session_state.get('editor_script'):
+                    st.session_state['editor_script'] = st.session_state['editor_script'].upper()
+                    st.rerun()
+            
+            if st.button("🔡 lowercase", use_container_width=True, key="tool_lower"):
+                if st.session_state.get('editor_script'):
+                    st.session_state['editor_script'] = st.session_state['editor_script'].lower()
+                    st.rerun()
+            
+            if st.button("📋 Remove Empty Lines", use_container_width=True, key="tool_remove_empty"):
+                if st.session_state.get('editor_script'):
+                    lines = st.session_state['editor_script'].split('\n')
+                    st.session_state['editor_script'] = '\n'.join([l for l in lines if l.strip()])
+                    st.rerun()
+            
+            if st.button("🔢 Add Line Numbers", use_container_width=True, key="tool_line_num"):
+                if st.session_state.get('editor_script'):
+                    lines = st.session_state['editor_script'].split('\n')
+                    numbered = [f"{i+1}. {line}" for i, line in enumerate(lines)]
+                    st.session_state['editor_script'] = '\n'.join(numbered)
+                    st.rerun()
         
-        with video_col:
-            st.markdown("### 🎥 Video Player")
-            
-            # Drag and drop video with HTML5
-            st.markdown("""
-            <style>
-            .video-drop-zone {
-                border: 3px dashed rgba(0, 255, 100, 0.5);
-                border-radius: 15px;
-                padding: 40px 20px;
-                text-align: center;
-                background: rgba(0, 40, 20, 0.4);
-                margin: 10px 0;
-                transition: all 0.3s ease;
-            }
-            .video-drop-zone:hover {
-                border-color: rgba(0, 255, 100, 0.8);
-                background: rgba(0, 255, 100, 0.1);
-            }
-            .video-drop-zone p {
-                color: rgba(0, 255, 100, 0.7) !important;
-                margin: 0;
-                font-size: 14px;
-            }
-            .video-drop-zone .icon {
-                font-size: 48px;
-                margin-bottom: 10px;
-            }
-            #editor-video-player {
-                width: 100%;
-                max-height: 400px;
-                border-radius: 10px;
-                background: #000;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-            
-            # Video upload with drag-drop styling
-            video_file = st.file_uploader(
-                "🎬 Drag & Drop Video Here",
-                type=["mp4", "mkv", "mov", "webm", "avi"],
-                key="ed_video",
-                help="Drag and drop or click to select video"
-            )
-            
-            if video_file:
-                try:
-                    video_bytes = video_file.read()
-                    st.video(video_bytes)
-                    
-                    # Video info
-                    size_mb = len(video_bytes) / (1024 * 1024)
-                    st.success(f"✅ {video_file.name} ({size_mb:.1f} MB)")
-                    
-                    # Playback controls info
-                    st.caption("🎮 Controls: Space=Play/Pause, ←→=Seek, F=Fullscreen")
-                    
-                except Exception as e:
-                    st.error(f"Error: {e}")
-            else:
-                # Show drop zone placeholder
-                st.markdown("""
-                <div class="video-drop-zone">
-                    <div class="icon">🎬</div>
-                    <p><strong>Drag & Drop Video Here</strong></p>
-                    <p style="font-size: 12px; margin-top: 10px;">or click to browse</p>
-                    <p style="font-size: 11px; margin-top: 15px; opacity: 0.6;">
-                        Supports: MP4, MKV, MOV, WebM, AVI
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.markdown("---")
-                st.markdown("""
-                **💡 Tips:**
-                - Drag video file directly onto the upload area
-                - Script on left, video on right
-                - Use slider above to resize panels
-                - Use Google Docs link to save script online
-                """)
+        st.markdown("---")
+        
+        # Bottom actions
+        bottom_col1, bottom_col2, bottom_col3 = st.columns([1, 1, 1])
+        
+        with bottom_col1:
+            # Copy to clipboard info
+            st.markdown("📋 **Copy:** Select all text (Ctrl+A) and copy (Ctrl+C)")
+        
+        with bottom_col2:
+            # Current file info
+            current_file = st.session_state.get('editor_filename', 'New Script')
+            st.markdown(f"📄 **File:** {current_file}")
+        
+        with bottom_col3:
+            # External link
+            st.markdown("[📝 Open Google Docs](https://docs.google.com/document/create)")
 
 # --- FOOTER ---
 st.markdown("""
 <div style='text-align: center; margin-top: 2rem; padding: 1rem; border-top: 1px solid rgba(0, 255, 100, 0.1);'>
     <p style='color: rgba(0, 255, 100, 0.4) !important; font-size: 0.8rem; font-family: "Share Tech Mono", monospace;'>
-        ✨ ULTIMATE AI STUDIO v4.1 • GEMINI + SUPABASE + EDGE TTS
+        ✨ ULTIMATE AI STUDIO v4.2 • GEMINI + SUPABASE + EDGE TTS
     </p>
 </div>
 """, unsafe_allow_html=True)
