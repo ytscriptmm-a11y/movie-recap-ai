@@ -574,12 +574,13 @@ def process_video(file_path, video_name, vision_model, writer_model, style="", c
         force_memory_cleanup()
 
 # --- MAIN TITLE ---
-st.markdown("""
-<div class="main-title">
-    <h1>🎬 AI STUDIO PRO</h1>
-    <p>// သင့်အတွက် AI လက်ထောက် //</p>
-</div>
-""", unsafe_allow_html=True)
+st.markdown("### 🎬 ဗီဒီယို ရီကပ် Script ဖန်တီးရန်")
+    
+    c1, c2 = st.columns([1, 1], gap="medium")
+    
+    with c1:
+        with st.container(border=True):
+            st.markdown("#### 📂 ဗီဒီယိုထည့်ရန်")
 
 # --- API KEY (TOP) ---
 with st.container(border=True):
@@ -1143,3 +1144,4 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
+
