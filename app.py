@@ -55,7 +55,7 @@ if SUPABASE_AVAILABLE:
 # --- PAGE CONFIG ---
 st.set_page_config(
     page_title="AI Studio Pro", 
-    layout="wide",  # "centered" ဖြစ်နေရင် "wide" လို့ ပြောင်းလိုက်ပါ
+    layout="centered",  # "centered" ဖြစ်နေရင် "wide" လို့ ပြောင်းလိုက်ပါ
     initial_sidebar_state="collapsed"
 )
 
