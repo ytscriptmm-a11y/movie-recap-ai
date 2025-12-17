@@ -53,7 +53,7 @@ if SUPABASE_AVAILABLE:
         SUPABASE_AVAILABLE = False
 
 # --- PAGE CONFIG ---
-st.set_page_config(page_title="AI Studio Pro", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="AI Studio Pro", layout="centered", initial_sidebar_state="collapsed")
 
 # --- SESSION STATE ---
 def init_session_state():
