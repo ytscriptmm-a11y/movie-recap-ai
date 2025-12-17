@@ -55,7 +55,7 @@ if SUPABASE_AVAILABLE:
 # --- PAGE CONFIG ---
 st.set_page_config(
     page_title="AI Studio Pro", 
-    layout="centered",  # Centered ထားပြီး CSS ဖြင့် 1000px ချဲ့မည်
+    layout="centered",
     initial_sidebar_state="collapsed"
 )
 
@@ -427,17 +427,21 @@ init_session_state()
 # ==========================================
 
 # 1. NOT LOGGED IN
-with tab_login:
+if not st.session_state['user_session']:
+    st.title("🔒 Login / Sign Up")
+    st.markdown("---")
+    
+    tab_login, tab_signup = st.tabs(["Login", "Sign Up"])
+    
+    with tab_login:
         st.subheader("Welcome Back!")
-        # Form သုံးလိုက်ရင် Browser က Password save ဖို့ မေးပါလိမ့်မယ်
+        # Use st.form to enable browser password saving
         with st.form("login_form"):
             email = st.text_input("Email", key="login_email")
             password = st.text_input("Password", type="password", key="login_pass")
+            submit_login = st.form_submit_button("Login", use_container_width=True)
             
-            # Form Submit Button
-            submit_btn = st.form_submit_button("Login", use_container_width=True)
-            
-        if submit_btn:
+        if submit_login:
             user, msg = login_user(email, password)
             if user:
                 st.session_state['user_session'] = user
@@ -449,6 +453,7 @@ with tab_login:
                 st.error(f"❌ {msg}")
 
     with tab_signup:
+        st.subheader("Create Account")
         new_email = st.text_input("Email", key="reg_email")
         new_pass = st.text_input("Password", type="password", key="reg_pass")
         if st.button("Sign Up", use_container_width=True):
