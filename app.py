@@ -458,7 +458,7 @@ with tab1:
                 st.session_state['current_index'] = 0
                 st.rerun()
         with col2:
-            if st.button("Clear", disabled=not st.session_state['video_queue'], use_container_width=True):
+            if st.button("Clear", disabled=not st.session_state['video_queue'], use_container_width=True, key="clear_queue"):
                 for item in st.session_state['video_queue']: cleanup_temp_file(item.get('path'))
                 st.session_state['video_queue'] = []
                 st.session_state['processing_active'] = False
@@ -711,7 +711,8 @@ with tab7:
         with col1:
             script_file = st.file_uploader("Open", type=["txt", "docx", "srt"], key="ef", label_visibility="collapsed")
         with col2:
-            if st.button("Clear", use_container_width=True):
+            # key="clear_editor" ထည့်ထားသည်
+            if st.button("Clear", use_container_width=True, key="clear_editor"):
                 st.session_state['editor_script'] = ""
                 st.rerun()
         with col3:
