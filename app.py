@@ -693,7 +693,7 @@ if st.button("Generate", use_container_width=True, key="btn_gen_tts"):
                             st.session_state['tts_audio'] = path
                             st.success("Done!")
     
-    if st.session_state.get('tts_audio') and os.path.exists(st.session_state['tts_audio']):
+if st.session_state.get('tts_audio') and os.path.exists(st.session_state['tts_audio']):
         with st.container(border=True):
             with open(st.session_state['tts_audio'], 'rb') as f:
                 audio = f.read()
