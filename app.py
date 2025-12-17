@@ -434,19 +434,10 @@ st.title("AI Studio Pro")
 st.caption("Video Recap, Translation, Thumbnail & More")
 
 # --- API KEY & MODEL ---
-# --- API KEY & MODEL ---
 with st.container(border=True):
     st.subheader("Settings")
     
     api_key = st.text_input("Google API Key", type="password", placeholder="Enter API Key...")
-    
-    # Nano Banana Pro ပါဝင်သော Model List (Indentation ပြင်ပြီး)
-    global_model = st.selectbox(
-        "Default AI Model",
-        ["gemini-3-pro-image-preview", "gemini-1.5-flash", "gemini-2.0-flash-exp", "models/gemini-2.5-flash", "models/gemini-2.5-pro", "models/gemini-3-pro-preview"],
-        index=0,
-        help="Used for Translation, Rewriting"
-    )
     
     if api_key:
         try:
@@ -454,8 +445,6 @@ with st.container(border=True):
             st.success("API Key connected")
         except Exception as e:
             st.error(f"Invalid API Key")
-
-st.markdown("---")
 
 # --- TABS ---
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Recap", "Translate", "Thumbnail", "Rewrite", "Notes", "TTS", "Editor"])
@@ -574,8 +563,20 @@ with tab2:
     st.header("Translator")
     
     with st.container(border=True):
-        languages = {"Burmese": "Burmese", "English": "English", "Thai": "Thai", "Chinese": "Chinese", "Japanese": "Japanese", "Korean": "Korean"}
-        target_lang = st.selectbox("Target Language", list(languages.keys()))
+        # Model ရွေးရန် ဒီနေရာမှာ ထည့်လိုက်သည်
+        col_t1, col_t2 = st.columns([3, 1])
+        
+        with col_t2:
+            trans_model = st.selectbox(
+                "Model", 
+                ["gemini-1.5-flash", "gemini-2.0-flash-exp", "models/gemini-2.5-flash"],
+                key="trans_model_select"
+            )
+        
+        with col_t1:
+            languages = {"Burmese": "Burmese", "English": "English", "Thai": "Thai", "Chinese": "Chinese", "Japanese": "Japanese", "Korean": "Korean"}
+            target_lang = st.selectbox("Target Language", list(languages.keys()))
+            
         trans_file = st.file_uploader("File", type=["mp3", "mp4", "txt", "srt", "docx"], key="tf")
         
         if st.button("Translate", use_container_width=True):
@@ -583,35 +584,42 @@ with tab2:
                 ext = trans_file.name.split('.')[-1].lower()
                 target = languages[target_lang]
                 
+                # အောက်က ကုဒ်များတွင် global_model အစား trans_model ကို ပြောင်းသုံးပေးပါ
+                model = genai.GenerativeModel(trans_model) 
+                
+                # ... ကျန်တဲ့ ကုဒ်များ မူလအတိုင်း ...
                 if ext in ['txt', 'srt']:
                     with st.spinner("Translating..."):
                         text = trans_file.getvalue().decode("utf-8")
-                        model = genai.GenerativeModel(global_model)
                         res, _ = call_gemini_api(model, f"Translate to {target}. Return ONLY translated text.\n\n{text}")
+                        # ... (ကျန်ကုဒ်များ ဆက်လက်လုပ်ဆောင်) ...
                         if res:
                             result, _ = get_response_text_safe(res)
                             if result:
                                 st.text_area("Result", result, height=300)
                                 st.download_button("Download", result, f"trans_{trans_file.name}")
+
                 elif ext == 'docx':
-                    with st.spinner("Translating..."):
+                     with st.spinner("Translating..."):
                         text = read_file_content(trans_file)
                         if text:
-                            model = genai.GenerativeModel(global_model)
                             res, _ = call_gemini_api(model, f"Translate to {target}. Return ONLY translated text.\n\n{text}")
+                            # ... (ကျန်ကုဒ်များ ဆက်လက်လုပ်ဆောင်) ...
                             if res:
                                 result, _ = get_response_text_safe(res)
                                 if result:
                                     st.text_area("Result", result, height=300)
                                     st.download_button("Download", result, f"trans_{trans_file.name}.txt")
+
                 else:
+                    # Audio/Video processing
                     with st.spinner("Processing..."):
                         path, _ = save_uploaded_file_chunked(trans_file)
                         if path:
                             gfile = upload_to_gemini(path)
                             if gfile:
-                                model = genai.GenerativeModel(global_model)
                                 res, _ = call_gemini_api(model, [gfile, f"Transcribe and translate to {target}."], 600)
+                                # ... (ကျန်ကုဒ်များ ဆက်လက်လုပ်ဆောင်) ...
                                 if res:
                                     result, _ = get_response_text_safe(res)
                                     if result:
@@ -620,186 +628,64 @@ with tab2:
                                 try: genai.delete_file(gfile.name)
                                 except: pass
                             cleanup_temp_file(path)
-
-# === TAB 3: THUMBNAIL AI ===
-with tab3:
-    st.header("AI Thumbnail Generator")
-    st.caption("Gemini 3 Pro (Nano Banana) ကိုအသုံးပြုထားသည်")
-
-    # --- INPUT SECTION (အပေါ်ပိုင်း) ---
+# === TAB 4: REWRITE ===
+with tab4:
+    st.header("Script Rewriter")
+    
     with st.container(border=True):
-        
-        # --- Reference Images ---
-        st.markdown("**🖼️ Reference Images (Max 10):**")
-        ref_images = st.file_uploader(
-            "Upload reference images",
-            type=["png", "jpg", "jpeg", "webp"],
-            accept_multiple_files=True,
-            key="thumb_ref_images"
-        )
-        
-        # Preview (Horizontal Layout for Preview)
-        if ref_images:
-            st.caption(f"Selected {len(ref_images)} reference image(s)")
-            cols = st.columns(min(len(ref_images), 6)) # Preview ကိုတော့ သေးသေးလေးတွေပြဖို့ Column သုံးပါမယ်
-            for i, img in enumerate(ref_images[:6]):
-                with cols[i]:
-                    st.image(img, use_container_width=True)
-        
-        st.markdown("---")
-        
-        # --- Templates & Prompt ---
-        col_temp, col_prompt = st.columns([1, 2]) # Template နဲ့ Prompt ကို ဘေးတိုက်ထားခြင်း (ကြည့်ကောင်းအောင်)
-        
-        with col_temp:
-            st.markdown("**📝 Template:**")
-            prompt_templates = {
-                "✍️ Custom Prompt": "",
-                "🎬 Movie Recap Thumbnail": "Create a dramatic YouTube movie recap thumbnail, 1280x720 pixels, with cinematic dark color grading, showing dramatic scene with emotional expressions, bold eye-catching title text, professional high contrast style",
-                "😱 Shocking/Dramatic Style": "Create a YouTube thumbnail with shocked surprised expression style, bright red and yellow accent colors, large bold text with outline, arrow pointing to key element, exaggerated expressions, 1280x720 pixels",
-                "🎭 Before/After Comparison": "Create a before and after comparison YouTube thumbnail, split screen design with clear dividing line, contrasting colors for each side, bold BEFORE and AFTER labels, 1280x720 pixels",
-                "🔥 Top 10 List Style": "Create a Top 10 list style YouTube thumbnail, large number prominently displayed, grid collage of related images, bright energetic colors, bold sans-serif title, 1280x720 pixels",
-            }
-            selected_template = st.selectbox(
-                "Select a style:",
-                list(prompt_templates.keys()),
-                key="thumb_template",
-                label_visibility="collapsed"
+        col_r1, col_r2 = st.columns([3, 1])
+        with col_r2:
+             rewrite_model = st.selectbox(
+                "Model", 
+                ["gemini-1.5-flash", "gemini-2.0-flash-exp", "models/gemini-2.5-flash"],
+                key="rewrite_model_select"
             )
             
-        with col_prompt:
-            st.markdown("**🖼️ Prompt:**")
-            default_prompt = prompt_templates[selected_template]
-            user_prompt = st.text_area(
-                "Prompt Input",
-                value=default_prompt,
-                height=100,
-                placeholder="Describe the thumbnail you want to generate...",
-                key="thumb_prompt_input",
-                label_visibility="collapsed"
-            )
-
-        # --- Settings (Text, Count, Styles) ---
-        st.markdown("**⚙️ Settings:**")
-        col_s1, col_s2, col_s3 = st.columns([2, 1, 2])
+        style_file = st.file_uploader("Style Reference", type=["txt", "pdf", "docx"], key="rsf")
+        original = st.text_area("Original Script", height=250)
         
-        with col_s1:
-            add_text = st.text_input("Text Overlay:", placeholder="e.g., EP.1", key="thumb_text")
-        with col_s2:
-            num_images = st.selectbox("Count:", [1, 2, 3, 4], index=0, key="thumb_num")
-        with col_s3:
-            style_options = st.multiselect(
-                "Styles:",
-                ["Cinematic", "Dramatic Lighting", "High Contrast", "Vibrant Colors", "Dark Mood", "Professional", "YouTube Style", "4K Quality"],
-                default=["YouTube Style", "High Contrast"],
-                key="thumb_styles"
+        if st.button("Rewrite", use_container_width=True):
+            if api_key and original:
+                style = read_file_content(style_file) if style_file else "Professional tone"
+                with st.spinner("Rewriting..."):
+                    # global_model အစား rewrite_model ကို သုံးပါ
+                    model = genai.GenerativeModel(rewrite_model)
+                    
+                    res, err = call_gemini_api(model, f"Rewrite in this style. Keep details. Output Burmese.\n\nSTYLE:\n{style[:5000]}\n\nORIGINAL:\n{original}")
+                    if res:
+                        text, _ = get_response_text_safe(res)
+                        if text:
+                            st.text_area("Result", text, height=350)
+                            st.download_button("Download", text, "rewritten.txt")
+# === TAB 4: REWRITE ===
+with tab4:
+    st.header("Script Rewriter")
+    
+    with st.container(border=True):
+        col_r1, col_r2 = st.columns([3, 1])
+        with col_r2:
+             rewrite_model = st.selectbox(
+                "Model", 
+                ["gemini-1.5-flash", "gemini-2.0-flash-exp", "models/gemini-2.5-flash"],
+                key="rewrite_model_select"
             )
-
-        st.write("")
-        # Generate Button
-        generate_clicked = st.button("🚀 Generate Thumbnail", use_container_width=True, key="btn_gen_thumb")
-
-    # --- PROCESS LOGIC ---
-    if generate_clicked:
-        if not api_key:
-            st.error("⚠️ Please enter API Key in Settings first!")
-        elif not user_prompt.strip():
-            st.warning("⚠️ Please enter a prompt!")
-        else:
-            st.session_state['generated_images'] = []
             
-            # Prompt Construction
-            final_prompt = user_prompt.strip()
-            if add_text:
-                final_prompt += f", with bold text overlay showing '{add_text}'"
-            if style_options:
-                final_prompt += f", style: {', '.join(style_options)}"
-            final_prompt += ", high quality, detailed, sharp focus"
-            
-            with st.container(border=True):
-                st.info(f"🎨 Generating with Nano Banana Pro...")
-                progress_bar = st.progress(0)
-                status_text = st.empty()
-                
-                try:
-                    image_model = genai.GenerativeModel("gemini-3-pro-image-preview")
-                    
-                    for i in range(num_images):
-                        try:
-                            status_text.info(f"🔄 Generating image {i+1}/{num_images}...")
-                            progress_bar.progress((i) / num_images)
-                            
-                            content_request = [f"Generate an image: {final_prompt}"]
-                            
-                            if ref_images:
-                                for ref in ref_images[:10]:
-                                    ref.seek(0)
-                                    pil_img = Image.open(ref)
-                                    content_request.append(pil_img)
-                            
-                            response = image_model.generate_content(
-                                content_request,
-                                request_options={"timeout": 180}
-                            )
-                            
-                            image_found = False
-                            if response.candidates:
-                                for part in response.candidates[0].content.parts:
-                                    if hasattr(part, 'inline_data') and part.inline_data:
-                                        st.session_state['generated_images'].append({
-                                            'data': part.inline_data.data,
-                                            'mime_type': part.inline_data.mime_type,
-                                            'index': i + 1
-                                        })
-                                        image_found = True
-                                        status_text.success(f"✅ Image {i+1} generated!")
-                                        break
-                            
-                            if not image_found:
-                                status_text.warning(f"⚠️ Image {i+1} Failed (Safety Filter).")
-                            
-                            time.sleep(2)
-                            
-                        except Exception as inner_e:
-                            status_text.error(f"⚠️ Image {i+1} Error: {str(inner_e)}")
-                    
-                    progress_bar.progress(1.0)
-                    if not st.session_state['generated_images']:
-                         status_text.error("❌ No images generated.")
-                    else:
-                         status_text.success("🎉 All Done!")
-                    
-                except Exception as e:
-                    st.error(f"❌ Critical Error: {str(e)}")
-
-    # --- RESULTS SECTION (အောက်ပိုင်း) ---
-    if st.session_state.get('generated_images'):
-        st.markdown("### 🖼️ Results")
+        style_file = st.file_uploader("Style Reference", type=["txt", "pdf", "docx"], key="rsf")
+        original = st.text_area("Original Script", height=250)
         
-        # Clear Button
-        if st.button("🗑️ Clear All", key="clear_thumb_btn"):
-            st.session_state['generated_images'] = []
-            st.rerun()
-
-        # Display Images in a Grid (2 images per row)
-        for idx, img_data in enumerate(st.session_state['generated_images']):
-            # 2 images per row Logic
-            if idx % 2 == 0:
-                cols = st.columns(2)
-            
-            with cols[idx % 2]:
-                with st.container(border=True):
-                    st.image(img_data['data'], use_container_width=True)
-                    file_ext = "png" if "png" in img_data.get('mime_type', 'png') else "jpg"
-                    st.download_button(
-                        f"⬇️ Download #{img_data['index']}",
-                        img_data['data'],
-                        file_name=f"thumbnail_{idx+1}.{file_ext}",
-                        mime=img_data.get('mime_type', 'image/png'),
-                        key=f"dl_thumb_{idx}_{time.time()}",
-                        use_container_width=True
-                    )
-
+        if st.button("Rewrite", use_container_width=True):
+            if api_key and original:
+                style = read_file_content(style_file) if style_file else "Professional tone"
+                with st.spinner("Rewriting..."):
+                    # global_model အစား rewrite_model ကို သုံးပါ
+                    model = genai.GenerativeModel(rewrite_model)
+                    
+                    res, err = call_gemini_api(model, f"Rewrite in this style. Keep details. Output Burmese.\n\nSTYLE:\n{style[:5000]}\n\nORIGINAL:\n{original}")
+                    if res:
+                        text, _ = get_response_text_safe(res)
+                        if text:
+                            st.text_area("Result", text, height=350)
+                            st.download_button("Download", text, "rewritten.txt")
 # === TAB 5: NOTES ===
 with tab5:
     st.header("Notes")
