@@ -12,3 +12,12 @@ python-docx
 pillow
 requests
 gdown
+streamlit
+google-generativeai
+PyPDF2
+python-docx
+pillow
+requests
+gdown
+supabase
+edge-tts
