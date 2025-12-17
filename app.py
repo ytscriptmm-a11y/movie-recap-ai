@@ -465,8 +465,11 @@ with tab1:
     
     with st.container(border=True):
         st.subheader("Model Selection")
-        vision_model = st.selectbox("Vision Model", ["models/gemini-2.5-flash", "models/gemini-2.5-pro", "models/gemini-3-pro-preview", "gemini-1.5-flash"], key="vm")
-        writer_model = st.selectbox("Writer Model", ["gemini-1.5-flash", "gemini-2.0-flash-exp", "models/gemini-2.5-flash", "models/gemini-2.5-pro", "models/gemini-3-pro-preview"], key="wm")
+        # Vision Model တွင်လည်း ထည့်သွင်းသည်
+        vision_model = st.selectbox("Vision Model", ["gemini-3-pro-image-preview", "models/gemini-2.5-flash", "models/gemini-2.5-pro", "models/gemini-3-pro-preview", "gemini-1.5-flash"], key="vm")
+        
+        # Writer Model (မြန်မာစာရေးသားမည့်နေရာ) တွင် ထည့်သွင်းသည်
+        writer_model = st.selectbox("Writer Model", ["gemini-3-pro-image-preview", "gemini-1.5-flash", "gemini-2.0-flash-exp", "models/gemini-2.5-flash", "models/gemini-2.5-pro", "models/gemini-3-pro-preview"], key="wm")
     
     with st.container(border=True):
         st.subheader("Add Videos")
