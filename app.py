@@ -623,38 +623,36 @@ with tab2:
 
 # === TAB 3: THUMBNAIL AI ===
 with tab3:
-    st.write("")
-    
-    # Layout ခွဲခြင်း
-    col_thumb_left, col_thumb_right = st.columns([1, 1], gap="medium")
-    
-    # --- LEFT COLUMN: CONTROLS ---
-    with col_thumb_left:
-        with st.container(border=True):
-            st.subheader("🎨 AI Thumbnail Generator")
-            st.markdown("<p style='opacity: 0.7;'>Gemini 3 Pro (Nano Banana) ကိုအသုံးပြုထားသည်</p>", unsafe_allow_html=True)
-            
-            # --- Reference Image (Max 10 fixed) ---
-            st.markdown("**🖼️ Reference Images (Max 10):**")
-            ref_images = st.file_uploader(
-                "Upload reference images",
-                type=["png", "jpg", "jpeg", "webp"],
-                accept_multiple_files=True, # ပုံများစွာတင်ခွင့်ပြုသည်
-                key="thumb_ref_images"
-            )
-            
-            # Preview showing
-            if ref_images:
-                st.caption(f"Selected {len(ref_images)} reference image(s)")
-                cols = st.columns(min(len(ref_images), 4))
-                for i, img in enumerate(ref_images[:4]):
-                    with cols[i]:
-                        st.image(img, use_container_width=True)
-            
-            st.markdown("---")
-            
-            # --- Templates ---
-            st.markdown("**📝 Quick Templates:**")
+    st.header("AI Thumbnail Generator")
+    st.caption("Gemini 3 Pro (Nano Banana) ကိုအသုံးပြုထားသည်")
+
+    # --- INPUT SECTION (အပေါ်ပိုင်း) ---
+    with st.container(border=True):
+        
+        # --- Reference Images ---
+        st.markdown("**🖼️ Reference Images (Max 10):**")
+        ref_images = st.file_uploader(
+            "Upload reference images",
+            type=["png", "jpg", "jpeg", "webp"],
+            accept_multiple_files=True,
+            key="thumb_ref_images"
+        )
+        
+        # Preview (Horizontal Layout for Preview)
+        if ref_images:
+            st.caption(f"Selected {len(ref_images)} reference image(s)")
+            cols = st.columns(min(len(ref_images), 6)) # Preview ကိုတော့ သေးသေးလေးတွေပြဖို့ Column သုံးပါမယ်
+            for i, img in enumerate(ref_images[:6]):
+                with cols[i]:
+                    st.image(img, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # --- Templates & Prompt ---
+        col_temp, col_prompt = st.columns([1, 2]) # Template နဲ့ Prompt ကို ဘေးတိုက်ထားခြင်း (ကြည့်ကောင်းအောင်)
+        
+        with col_temp:
+            st.markdown("**📝 Template:**")
             prompt_templates = {
                 "✍️ Custom Prompt": "",
                 "🎬 Movie Recap Thumbnail": "Create a dramatic YouTube movie recap thumbnail, 1280x720 pixels, with cinematic dark color grading, showing dramatic scene with emotional expressions, bold eye-catching title text, professional high contrast style",
@@ -662,51 +660,145 @@ with tab3:
                 "🎭 Before/After Comparison": "Create a before and after comparison YouTube thumbnail, split screen design with clear dividing line, contrasting colors for each side, bold BEFORE and AFTER labels, 1280x720 pixels",
                 "🔥 Top 10 List Style": "Create a Top 10 list style YouTube thumbnail, large number prominently displayed, grid collage of related images, bright energetic colors, bold sans-serif title, 1280x720 pixels",
             }
-            
             selected_template = st.selectbox(
-                "Template ရွေးပါ:",
+                "Select a style:",
                 list(prompt_templates.keys()),
-                key="thumb_template"
+                key="thumb_template",
+                label_visibility="collapsed"
             )
             
+        with col_prompt:
+            st.markdown("**🖼️ Prompt:**")
             default_prompt = prompt_templates[selected_template]
             user_prompt = st.text_area(
-                "🖼️ Image Prompt:",
+                "Prompt Input",
                 value=default_prompt,
-                height=150,
+                height=100,
                 placeholder="Describe the thumbnail you want to generate...",
-                key="thumb_prompt_input"
+                key="thumb_prompt_input",
+                label_visibility="collapsed"
             )
-            
-            st.markdown("**⚙️ Customization:**")
-            col_opt1, col_opt2 = st.columns(2)
-            
-            with col_opt1:
-                add_text = st.text_input(
-                    "Text on Image:",
-                    placeholder="e.g., EP.1, PART 2",
-                    key="thumb_text"
-                )
-            
-            with col_opt2:
-                num_images = st.selectbox(
-                    "Number of Images:",
-                    [1, 2, 3, 4],
-                    index=0,
-                    key="thumb_num"
-                )
-            
+
+        # --- Settings (Text, Count, Styles) ---
+        st.markdown("**⚙️ Settings:**")
+        col_s1, col_s2, col_s3 = st.columns([2, 1, 2])
+        
+        with col_s1:
+            add_text = st.text_input("Text Overlay:", placeholder="e.g., EP.1", key="thumb_text")
+        with col_s2:
+            num_images = st.selectbox("Count:", [1, 2, 3, 4], index=0, key="thumb_num")
+        with col_s3:
             style_options = st.multiselect(
-                "Style Modifiers:",
+                "Styles:",
                 ["Cinematic", "Dramatic Lighting", "High Contrast", "Vibrant Colors", "Dark Mood", "Professional", "YouTube Style", "4K Quality"],
                 default=["YouTube Style", "High Contrast"],
                 key="thumb_styles"
             )
+
+        st.write("")
+        # Generate Button
+        generate_clicked = st.button("🚀 Generate Thumbnail", use_container_width=True, key="btn_gen_thumb")
+
+    # --- PROCESS LOGIC ---
+    if generate_clicked:
+        if not api_key:
+            st.error("⚠️ Please enter API Key in Settings first!")
+        elif not user_prompt.strip():
+            st.warning("⚠️ Please enter a prompt!")
+        else:
+            st.session_state['generated_images'] = []
             
-            st.markdown("---")
+            # Prompt Construction
+            final_prompt = user_prompt.strip()
+            if add_text:
+                final_prompt += f", with bold text overlay showing '{add_text}'"
+            if style_options:
+                final_prompt += f", style: {', '.join(style_options)}"
+            final_prompt += ", high quality, detailed, sharp focus"
             
-            # Generate Button
-            generate_clicked = st.button("🚀 Generate Thumbnail", use_container_width=True, key="btn_gen_thumb")
+            with st.container(border=True):
+                st.info(f"🎨 Generating with Nano Banana Pro...")
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                try:
+                    image_model = genai.GenerativeModel("gemini-3-pro-image-preview")
+                    
+                    for i in range(num_images):
+                        try:
+                            status_text.info(f"🔄 Generating image {i+1}/{num_images}...")
+                            progress_bar.progress((i) / num_images)
+                            
+                            content_request = [f"Generate an image: {final_prompt}"]
+                            
+                            if ref_images:
+                                for ref in ref_images[:10]:
+                                    ref.seek(0)
+                                    pil_img = Image.open(ref)
+                                    content_request.append(pil_img)
+                            
+                            response = image_model.generate_content(
+                                content_request,
+                                request_options={"timeout": 180}
+                            )
+                            
+                            image_found = False
+                            if response.candidates:
+                                for part in response.candidates[0].content.parts:
+                                    if hasattr(part, 'inline_data') and part.inline_data:
+                                        st.session_state['generated_images'].append({
+                                            'data': part.inline_data.data,
+                                            'mime_type': part.inline_data.mime_type,
+                                            'index': i + 1
+                                        })
+                                        image_found = True
+                                        status_text.success(f"✅ Image {i+1} generated!")
+                                        break
+                            
+                            if not image_found:
+                                status_text.warning(f"⚠️ Image {i+1} Failed (Safety Filter).")
+                            
+                            time.sleep(2)
+                            
+                        except Exception as inner_e:
+                            status_text.error(f"⚠️ Image {i+1} Error: {str(inner_e)}")
+                    
+                    progress_bar.progress(1.0)
+                    if not st.session_state['generated_images']:
+                         status_text.error("❌ No images generated.")
+                    else:
+                         status_text.success("🎉 All Done!")
+                    
+                except Exception as e:
+                    st.error(f"❌ Critical Error: {str(e)}")
+
+    # --- RESULTS SECTION (အောက်ပိုင်း) ---
+    if st.session_state.get('generated_images'):
+        st.markdown("### 🖼️ Results")
+        
+        # Clear Button
+        if st.button("🗑️ Clear All", key="clear_thumb_btn"):
+            st.session_state['generated_images'] = []
+            st.rerun()
+
+        # Display Images in a Grid (2 images per row)
+        for idx, img_data in enumerate(st.session_state['generated_images']):
+            # 2 images per row Logic
+            if idx % 2 == 0:
+                cols = st.columns(2)
+            
+            with cols[idx % 2]:
+                with st.container(border=True):
+                    st.image(img_data['data'], use_container_width=True)
+                    file_ext = "png" if "png" in img_data.get('mime_type', 'png') else "jpg"
+                    st.download_button(
+                        f"⬇️ Download #{img_data['index']}",
+                        img_data['data'],
+                        file_name=f"thumbnail_{idx+1}.{file_ext}",
+                        mime=img_data.get('mime_type', 'image/png'),
+                        key=f"dl_thumb_{idx}_{time.time()}",
+                        use_container_width=True
+                    )
     
     # --- RIGHT COLUMN: RESULTS ---
     with col_thumb_right:
