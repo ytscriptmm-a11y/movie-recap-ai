@@ -46,7 +46,7 @@ except ImportError:
 
 # --- SUPABASE CONFIGURATION ---
 SUPABASE_URL = "https://ohjvgupjocgsirhwuobf.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oanZndXBqb2Nnc2lyaHd1b2JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQzNDUwNzQsImV4cCI6MjA0OTkyMTA3NH0.2e0t5_P6zPM0KM6Jz5bPcSiT1gNb4BVqpXwiwFMvMYE"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oanZndXBqb2Nnc2lyaHd1b2JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5MzkwMTgsImV4cCI6MjA4MTUxNTAxOH0.oZxQZ6oksjbmEeA_m8c44dG_z5hHLwtgoJssgK2aogI"
 
 # Initialize Supabase client
 supabase = None
