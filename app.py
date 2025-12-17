@@ -434,14 +434,15 @@ st.title("AI Studio Pro")
 st.caption("Video Recap, Translation, Thumbnail & More")
 
 # --- API KEY & MODEL ---
+# --- API KEY & MODEL ---
 with st.container(border=True):
     st.subheader("Settings")
     
     api_key = st.text_input("Google API Key", type="password", placeholder="Enter API Key...")
     
-   global_model = st.selectbox(
+    # Nano Banana Pro ပါဝင်သော Model List (Indentation ပြင်ပြီး)
+    global_model = st.selectbox(
         "Default AI Model",
-        # Nano Banana Pro ကို ထိပ်ဆုံးမှာ ထည့်ထားပေးပါတယ်
         ["gemini-3-pro-image-preview", "gemini-1.5-flash", "gemini-2.0-flash-exp", "models/gemini-2.5-flash", "models/gemini-2.5-pro", "models/gemini-3-pro-preview"],
         index=0,
         help="Used for Translation, Rewriting"
