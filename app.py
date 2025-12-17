@@ -86,25 +86,35 @@ st.markdown("""
         padding: 1rem 2rem !important;
     }
     
+    /* Main Containers - ဘောင်များကို ပိုထင်းအောင် 0.2 မှ 0.6 သို့ ပြောင်းသည် */
     div[data-testid="stVerticalBlockBorderWrapper"] > div {
         background: #1e293b !important;
-        border: 1px solid rgba(0, 212, 255, 0.2) !important;
+        border: 1px solid rgba(0, 212, 255, 0.6) !important; /* Changed 0.2 to 0.6 */
         border-radius: 16px !important;
         padding: 1.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Added shadow for depth */
     }
     
+    /* Input Fields - စာလုံးအရောင် ပိုဖြူအောင်နှင့် ဘောင်ပိုထင်းအောင် ပြုပြင်သည် */
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {
         background: #0f172a !important;
-        color: #e2e8f0 !important;
-        border: 1px solid rgba(0, 212, 255, 0.3) !important;
+        color: #f8fafc !important; /* Brighter white text */
+        border: 1px solid rgba(0, 212, 255, 0.7) !important; /* Changed 0.3 to 0.7 */
         border-radius: 10px !important;
     }
     
+    /* Select Box - ဘောင်ပိုထင်းအောင် ပြုပြင်သည် */
     .stSelectbox > div > div {
         background: #0f172a !important;
-        border: 1px solid rgba(0, 212, 255, 0.3) !important;
+        border: 1px solid rgba(0, 212, 255, 0.7) !important; /* Changed 0.3 to 0.7 */
         border-radius: 10px !important;
+        color: #f8fafc !important;
+    }
+
+    /* Select Box အတွင်းမှ စာသားများ */
+    div[data-baseweb="select"] > div {
+        color: #f8fafc !important;
     }
     
     .stButton > button {
@@ -123,10 +133,12 @@ st.markdown("""
         background: #1e293b;
         padding: 10px;
         border-radius: 12px;
+        border: 1px solid rgba(0, 212, 255, 0.3); /* Added subtle border to tabs container */
     }
     
+    /* Unselected Tabs - ရွေးမထားသော Tab စာလုံးများကို ပိုလင်းအောင် ပြင်သည် */
     .stTabs [data-baseweb="tab"] {
-        color: #94a3b8;
+        color: #cbd5e1; /* Brighter gray */
         padding: 10px 20px;
     }
     
@@ -136,13 +148,15 @@ st.markdown("""
         border-radius: 8px;
     }
     
-    h1, h2, h3, h4, p, span, label {
-        color: #e2e8f0 !important;
+    /* General Text - ခေါင်းစဉ်နှင့် စာသားများကို ပိုဖြူအောင် ပြင်သည် */
+    h1, h2, h3, h4, p, span, label, div[data-testid="stMarkdownContainer"] p {
+        color: #f8fafc !important; /* Brighter white text */
     }
     
     [data-testid="stMetricValue"] { color: #00d4ff !important; }
     
-    hr { background: rgba(0, 212, 255, 0.2); height: 1px; border: none; }
+    /* Divider Line - မျဉ်းကို ပိုထင်းအောင် ပြင်သည် */
+    hr { background: rgba(0, 212, 255, 0.5) !important; height: 1px; border: none; } /* Changed 0.2 to 0.5 */
 </style>
 """, unsafe_allow_html=True)
 
