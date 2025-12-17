@@ -882,7 +882,7 @@ with tab3:
                 
                 try:
                     # Use correct model for image generation
-                    model = genai.GenerativeModel("models/gemini-2.0-flash-exp-image-generation")
+                    model = genai.GenerativeModel("models/gemini-3-pro-image-preview")
                     
                     for i in range(num_imgs):
                         st.info(f"🎨 ပုံ {i+1}/{num_imgs} ဖန်တီးနေသည်...")
@@ -1157,4 +1157,5 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
+
 
