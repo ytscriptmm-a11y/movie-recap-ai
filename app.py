@@ -571,7 +571,8 @@ with tab3:
         add_text = st.text_input("Text Overlay", placeholder="e.g. EP.1")
         num_imgs = st.selectbox("Count", [1, 2, 3, 4])
         
-        if st.button("Generate", use_container_width=True):
+        # ပြင်ထားသောလိုင်း (key="gen_thumb" ထည့်ထားသည်)
+        if st.button("Generate", use_container_width=True, key="gen_thumb"):
             if api_key and prompt:
                 st.session_state['generated_images'] = []
                 final_prompt = prompt + (f", text: {add_text}" if add_text else "") + ", high quality"
@@ -685,7 +686,8 @@ with tab6:
             voice = st.selectbox("Voice", list(voices.keys()))
             rate = st.slider("Speed", -50, 50, 0, format="%d%%")
             
-            if st.button("Generate", use_container_width=True):
+            # ပြင်ထားသောလိုင်း (key="gen_tts" ထည့်ထားသည်)
+            if st.button("Generate", use_container_width=True, key="gen_tts"):
                 if tts_text.strip():
                     with st.spinner("Generating..."):
                         path, err = generate_tts(tts_text, voices[voice], rate)
