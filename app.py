@@ -85,12 +85,12 @@ st.markdown("""
     
     header, #MainMenu, footer { visibility: hidden; }
     
-    /* --- MAIN CONTAINER FIX --- */
+    /* --- MAIN CONTAINER FIX (1000px) --- */
     .main .block-container { 
-        max-width: 1200px !important;  /* လိုချင်သော အကျယ် (ဒီမှာ လိုသလို ပြောင်းနိုင်) */
+        max-width: 1000px !important;  /* ဒီနေရာမှာ 1000px သို့ ပြောင်းထားသည် */
         padding: 2rem !important;
         
-        /* အဓိကအချက်: အလယ်တည့်တည့်ရောက်စေရန် */
+        /* အလယ်တည့်တည့်ရောက်စေရန် */
         margin-left: auto !important;
         margin-right: auto !important;
         
@@ -118,7 +118,6 @@ st.markdown("""
         padding: 1.5rem;
     }
     
-    /* Input Fields */
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {
         background-color: #0f172a !important;
@@ -127,7 +126,6 @@ st.markdown("""
         border-radius: 10px !important;
     }
     
-    /* Buttons */
     .stButton > button {
         background: linear-gradient(135deg, #00d4ff, #0099cc) !important;
         color: #000 !important;
@@ -140,7 +138,6 @@ st.markdown("""
         color: #fff !important;
     }
     
-    /* Tabs & Text */
     .stTabs [data-baseweb="tab-list"] {
         background: #1e293b;
         padding: 10px;
@@ -159,7 +156,6 @@ st.markdown("""
     [data-testid="stMetricValue"] { color: #00d4ff !important; }
     hr { background: rgba(0, 212, 255, 0.5) !important; height: 1px; border: none; }
     
-    /* File Uploader Fix */
     div[data-testid="stFileUploader"] section {
         background-color: #1e293b !important;
         border: 1px dashed rgba(0, 212, 255, 0.5) !important;
@@ -172,7 +168,6 @@ st.markdown("""
         color: #cbd5e1 !important;
     }
     
-    /* SelectBox Fix */
     div[data-baseweb="select"] > div, .stSelectbox > div > div {
         background-color: #0f172a !important;
         color: #f8fafc !important;
@@ -184,7 +179,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-
 # --- HELPER FUNCTIONS ---
 def get_user_hash(api_key):
     return hashlib.sha256(api_key.encode()).hexdigest()[:32]
