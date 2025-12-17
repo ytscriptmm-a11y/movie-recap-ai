@@ -571,7 +571,7 @@ with tab3:
         add_text = st.text_input("Text Overlay", placeholder="e.g. EP.1")
         num_imgs = st.selectbox("Count", [1, 2, 3, 4])
         
-if st.button("Generate", use_container_width=True):
+        if st.button("Generate", use_container_width=True):
             if api_key and prompt:
                 st.session_state['generated_images'] = []
                 final_prompt = prompt + (f", text: {add_text}" if add_text else "") + ", high quality"
@@ -602,7 +602,7 @@ if st.button("Generate", use_container_width=True):
                     except Exception as e:
                         st.error(str(e))
     
-if st.session_state.get('generated_images'):
+    if st.session_state.get('generated_images'):
         with st.container(border=True):
             st.subheader("Results")
             for img in st.session_state['generated_images']:
@@ -685,7 +685,7 @@ with tab6:
             voice = st.selectbox("Voice", list(voices.keys()))
             rate = st.slider("Speed", -50, 50, 0, format="%d%%")
             
-if st.button("Generate", use_container_width=True, key="btn_gen_tts"):
+            if st.button("Generate", use_container_width=True):
                 if tts_text.strip():
                     with st.spinner("Generating..."):
                         path, err = generate_tts(tts_text, voices[voice], rate)
@@ -693,7 +693,7 @@ if st.button("Generate", use_container_width=True, key="btn_gen_tts"):
                             st.session_state['tts_audio'] = path
                             st.success("Done!")
     
-if st.session_state.get('tts_audio') and os.path.exists(st.session_state['tts_audio']):
+    if st.session_state.get('tts_audio') and os.path.exists(st.session_state['tts_audio']):
         with st.container(border=True):
             with open(st.session_state['tts_audio'], 'rb') as f:
                 audio = f.read()
