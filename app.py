@@ -153,29 +153,42 @@ def dl_gdrive(url,s=None):
         return None,"Download failed"
     except Exception as e: return None,str(e)
 
-def process_vid(p,n,vm,wm,st_txt="",cust="",s=None):
-    gf=None
+def process_video(file_path, video_name, vision_model, writer_model, style="", custom="", status=None):
+    gemini_file = None
     try:
-        if s: s.info("Step 1/3: Uploading...")
-        gf=upload_gem(p,s)
-        if not gf: return None,"Upload failed"
-        if s: s.info("Step 2/3: Analyzing...")
-        v=genai.GenerativeModel(vm)
-        r,e=call_api(v,[gf,"Watch this video carefully. 
+        if status: status.info("Step 1/3: Uploading to Gemini...")
+        gemini_file = upload_to_gemini(file_path, status)
+        if not gemini_file: return None, "Upload failed"
+        
+        if status: status.info("Step 2/3: AI analyzing video...")
+        vision = genai.GenerativeModel(vision_model)
+        
+        # ဒီစာသားမှာ Error တက်နေတာပါ (Triple Quotes """ နဲ့ သေချာပြန်ပြင်ထားပါတယ်)
+        vision_prompt = """
+        Watch this video carefully. 
         Generate a highly detailed, chronological scene-by-scene description. (Use a storytelling tone.)
         Include All the dialogue in the movie, visual details, emotions, and actions. (Use a storytelling tone.)
-        No creative writing yet, just facts."],600)
-        if e: return None,f"Analysis failed: {e}"
-        desc,_=get_text(r)
+        No creative writing yet, just facts.
+        """
+        
+        resp, err = call_gemini_api(vision, [gemini_file, vision_prompt], 600)
+        if err: return None, f"Analysis failed: {err}"
+        video_description, _ = get_response_text_safe(resp)
+        
         time.sleep(5)
-        if s: s.info("Step 3/3: Writing script...")
-        w=genai.GenerativeModel(wm)
-        pr=f"Professional Burmese Movie Recap Scriptwriter.\n\nINPUT:\n{desc}\n{f'STYLE:{st_txt}' if st_txt else ''}\n{f'CUSTOM:{cust}' if cust else ''}\n\nYou are a professional Burmese Movie Recap Scriptwriter.
+        
+        if status: status.info("Step 3/3: Writing Burmese recap script...")
+        writer = genai.GenerativeModel(writer_model)
+        
+        custom_instructions = f"\n\n**CUSTOM INSTRUCTIONS:**\n{custom}\n" if custom else ""
+        style_text = f"\n\n**WRITING STYLE REFERENCE:**\n{style}\n" if style else ""
+        
+        writer_prompt = f"""
+        You are a professional Burmese Movie Recap Scriptwriter.
         Turn this description into an engaging **Burmese Movie Recap Script**.
         
         **INPUT DATA:**
         {video_description}
-        
         {style_text}
         {custom_instructions}
         
@@ -185,18 +198,20 @@ def process_vid(p,n,vm,wm,st_txt="",cust="",s=None):
         3. Cover the whole story.
         4. Do not summarize too much; keep details.
         5. Scene-by-scene.(Use a storytelling tone.) 
-        6. Full narration.                         
-        """"
-        r,e=call_api(w,pr,600)
-        if e: return None,f"Writing failed: {e}"
-        txt,_=get_text(r)
-        return txt,None
-    except Exception as e: return None,str(e)
+        6. Full narration.
+        """
+        
+        resp, err = call_gemini_api(writer, writer_prompt, 600)
+        if err: return None, f"Writing failed: {err}"
+        
+        text, _ = get_response_text_safe(resp)
+        return text, None
+    except Exception as e: return None, str(e)
     finally:
-        if gf:
-            try: genai.delete_file(gf.name)
+        if gemini_file:
+            try: genai.delete_file(gemini_file.name)
             except: pass
-        cleanup()
+        force_memory_cleanup()
 
 def hash_pw(p): return hashlib.sha256(p.encode()).hexdigest()
 
