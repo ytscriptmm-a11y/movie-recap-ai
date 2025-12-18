@@ -161,10 +161,10 @@ def process_vid(p,n,vm,wm,st_txt="",cust="",s=None):
         if not gf: return None,"Upload failed"
         if s: s.info("Step 2/3: Analyzing...")
         v=genai.GenerativeModel(vm)
-        r,e=call_api(v,[gf," Watch this video carefully. 
+        r,e=call_api(v,[gf,"Watch this video carefully. 
         Generate a highly detailed, chronological scene-by-scene description. (Use a storytelling tone.)
         Include All the dialogue in the movie, visual details, emotions, and actions. (Use a storytelling tone.)
-        No creative writing yet, just facts. "],600)
+        No creative writing yet, just facts."],600)
         if e: return None,f"Analysis failed: {e}"
         desc,_=get_text(r)
         time.sleep(5)
