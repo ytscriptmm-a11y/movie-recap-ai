@@ -7,6 +7,8 @@ import gc
 import io
 import hashlib
 import asyncio
+import struct  # Added for WAV conversion
+import mimetypes # Added for MIME type guessing
 from PIL import Image
 
 # --- LIBRARY IMPORTS & CHECKS ---
@@ -150,6 +152,41 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+# --- AUDIO CONVERSION HELPERS (New!) ---
+def parse_audio_mime_type(mime_type: str) -> dict:
+    bits_per_sample = 16
+    rate = 24000
+    parts = mime_type.split(";")
+    for param in parts:
+        param = param.strip()
+        if param.lower().startswith("rate="):
+            try:
+                rate = int(param.split("=", 1)[1])
+            except: pass
+        elif param.startswith("audio/L"):
+            try:
+                bits_per_sample = int(param.split("L", 1)[1])
+            except: pass
+    return {"bits_per_sample": bits_per_sample, "rate": rate}
+
+def convert_to_wav(audio_data: bytes, mime_type: str) -> bytes:
+    parameters = parse_audio_mime_type(mime_type)
+    bits_per_sample = parameters["bits_per_sample"]
+    sample_rate = parameters["rate"]
+    num_channels = 1
+    data_size = len(audio_data)
+    bytes_per_sample = bits_per_sample // 8
+    block_align = num_channels * bytes_per_sample
+    byte_rate = sample_rate * block_align
+    chunk_size = 36 + data_size
+    
+    header = struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF", chunk_size, b"WAVE", b"fmt ", 16, 1, num_channels,
+        sample_rate, byte_rate, block_align, bits_per_sample, b"data", data_size
+    )
+    return header + audio_data
 
 # --- HELPER FUNCTIONS (GLOBAL) ---
 def get_user_hash(api_key):
@@ -502,7 +539,7 @@ else:
     
     st.markdown("---")
 
-    # --- API SETTINGS (SIMPLIFIED) ---
+    # --- API SETTINGS ---
     with st.container(border=True):
         st.subheader("Settings")
         api_key = st.text_input("Google API Key", type="password", placeholder="Enter API Key...")
@@ -679,7 +716,7 @@ else:
                                     except: pass
                                 cleanup_temp_file(path)
 
-    # === TAB 3: THUMBNAIL (SINGLE COLUMN FIXED) ===
+    # === TAB 3: THUMBNAIL ===
     with tab3:
         st.header("AI Thumbnail Generator")
         st.caption("Gemini 3 Pro (Nano Banana) ကိုအသုံးပြုထားသည်")
@@ -834,18 +871,17 @@ else:
         st.header("Text to Speech")
         
         with st.container(border=True):
-            # Engine ရွေးချယ်ရန်
-            tts_engine = st.radio("TTS Engine", ["Edge TTS (Free/Reliable)", "Gemini AI (Experimental)"], horizontal=True)
+            # Engine Selection
+            tts_engine = st.radio("TTS Engine", ["Edge TTS (Free/Reliable)", "Gemini AI (Pro/Experimental)"], horizontal=True)
             
             st.markdown("---")
             
-            # --- OPTION 1: EDGE TTS (Recommended) ---
+            # --- OPTION 1: EDGE TTS ---
             if "Edge" in tts_engine:
                 if not EDGE_TTS_AVAILABLE:
                     st.error("Edge TTS not available")
                 else:
                     tts_text = st.text_area("Text Input", height=200, key="edge_text")
-                    
                     c1, c2 = st.columns(2)
                     with c1:
                         voices = get_voice_list()
@@ -863,9 +899,9 @@ else:
                                 else:
                                     st.error(f"Error: {err}")
 
-            # --- OPTION 2: GEMINI AI TTS (Experimental) ---
+            # --- OPTION 2: GEMINI AI TTS (With PCM to WAV) ---
             else:
-                st.info("⚠️ Gemini Audio Output is Experimental. အကယ်၍ အသံဖိုင်မထွက်လာပါက Edge TTS ကို ပြောင်းသုံးပါ။")
+                st.info("💡 Supports 'gemini-2.5-pro-preview-tts' (Raw PCM Audio)")
                 
                 gemini_text = st.text_area("Text Input", height=200, key="gemini_tts_text")
                 
@@ -873,9 +909,9 @@ else:
                 gemini_tts_model = st.selectbox(
                     "Select Gemini Model",
                     [
-                        "gemini-2.0-flash-exp", 
+                        "models/gemini-2.5-pro-preview-tts",
                         "models/gemini-2.5-flash-preview-tts",
-                        "models/gemini-2.5-pro-preview-tts"
+                        "gemini-2.0-flash-exp"
                     ],
                     index=0
                 )
@@ -886,36 +922,46 @@ else:
                     elif not gemini_text.strip():
                         st.warning("Please enter text!")
                     else:
-                        with st.spinner(f"Attempting to generate audio with {gemini_tts_model}..."):
+                        with st.spinner(f"Generating audio with {gemini_tts_model}..."):
                             try:
                                 model = genai.GenerativeModel(gemini_tts_model)
                                 
-                                # Error တက်စေသော generation_config ကို ဖြုတ်လိုက်သည်
+                                # Request generation (automatically handles Audio response)
                                 response = model.generate_content(
-                                    f"Read this text aloud naturally in Burmese. Text: {gemini_text}"
+                                    f"Please read the following text naturally in Burmese. Text: {gemini_text}"
                                 )
                                 
-                                # Audio Data ပါမပါ စစ်ဆေးခြင်း
+                                # Process Response parts
                                 audio_found = False
                                 if hasattr(response, 'parts'):
                                     for part in response.parts:
                                         if hasattr(part, 'inline_data') and part.inline_data:
-                                            # Audio Data တွေ့ရှိပါက သိမ်းဆည်းမည်
-                                            audio_data = part.inline_data.data
-                                            output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+                                            # Found Audio Data (Inline Blob)
+                                            raw_audio = part.inline_data.data
+                                            mime_type = part.inline_data.mime_type
+                                            
+                                            # If raw PCM, convert to WAV using the code you found!
+                                            if "audio/L16" in mime_type or "audio/pcm" in mime_type:
+                                                final_audio = convert_to_wav(raw_audio, mime_type)
+                                                ext = ".wav"
+                                            else:
+                                                final_audio = raw_audio
+                                                ext = ".mp3"
+                                            
+                                            # Save File
+                                            output_path = tempfile.NamedTemporaryFile(delete=False, suffix=ext).name
                                             with open(output_path, "wb") as f:
-                                                f.write(audio_data)
+                                                f.write(final_audio)
                                             
                                             st.session_state['tts_audio'] = output_path
-                                            st.success("Done! (Generated by Gemini)")
+                                            st.success(f"Done! ({mime_type})")
                                             audio_found = True
                                             break
                                 
                                 if not audio_found:
-                                    # အကယ်၍ အသံမထွက်ဘဲ စာပြန်လာပါက
+                                    # Fallback if text is returned
                                     text_response, _ = get_response_text_safe(response)
-                                    st.warning(f"⚠️ Model returned text instead of audio. (API Limitation)\n\nResponse: {text_response[:100]}...")
-                                    st.info("💡 အကြံပြုချက်: 'Edge TTS' ကို ပြောင်းသုံးပါ။ ၎င်းသည် မြန်မာစကားပြောအတွက် လက်ရှိအချိန်တွင် ပိုမိုသေချာပါသည်။")
+                                    st.warning(f"Model returned text: {text_response[:100]}...")
                                     
                             except Exception as e:
                                 st.error(f"Gemini TTS Error: {str(e)}")
@@ -926,14 +972,44 @@ else:
             with st.container(border=True):
                 with open(st.session_state['tts_audio'], 'rb') as f:
                     audio_bytes = f.read()
-                st.audio(audio_bytes, format='audio/mp3')
+                
+                # Use correct mime type based on file extension
+                mime = "audio/wav" if st.session_state['tts_audio'].endswith(".wav") else "audio/mp3"
+                st.audio(audio_bytes, format=mime)
                 
                 st.download_button(
-                    label="⬇️ Download MP3",
+                    label=f"⬇️ Download Audio",
                     data=audio_bytes,
-                    file_name="tts_audio.mp3",
-                    mime="audio/mp3",
+                    file_name=f"tts_audio.{mime.split('/')[1]}",
+                    mime=mime,
                     use_container_width=True
                 )
+
+    # === TAB 7: EDITOR ===
+    with tab7:
+        st.header("Script Editor")
+        with st.container(border=True):
+            col1, col2, col3 = st.columns(3)
+            with col1: script_file = st.file_uploader("Open", type=["txt", "docx", "srt"], key="ef", label_visibility="collapsed")
+            with col2: 
+                if st.button("Clear", use_container_width=True, key="clear_editor"):
+                    st.session_state['editor_script'] = ""
+                    st.rerun()
+            with col3: save_format = st.selectbox("Format", ["txt", "srt", "md"], label_visibility="collapsed")
+            
+            if script_file:
+                if script_file.name.endswith(('.txt', '.srt')): st.session_state['editor_script'] = script_file.getvalue().decode("utf-8")
+                elif DOCX_AVAILABLE: st.session_state['editor_script'] = read_file_content(script_file) or ""
+            
+            current = st.session_state.get('editor_script', '')
+            new_script = st.text_area("Script", current, height=400, label_visibility="collapsed")
+            if new_script != current: st.session_state['editor_script'] = new_script
+            
+            c1, c2, c3 = st.columns(3)
+            with c1: st.metric("Words", len(new_script.split()) if new_script else 0)
+            with c2: st.metric("Chars", len(new_script))
+            with c3:
+                if new_script: st.download_button("Save", new_script, f"script.{save_format}", use_container_width=True)
+
     st.markdown("---")
-    st.caption("AI Studio Pro v6.0")
+    st.caption("AI Studio Pro v6.1")
