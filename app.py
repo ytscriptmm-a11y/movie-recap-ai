@@ -161,13 +161,32 @@ def process_vid(p,n,vm,wm,st_txt="",cust="",s=None):
         if not gf: return None,"Upload failed"
         if s: s.info("Step 2/3: Analyzing...")
         v=genai.GenerativeModel(vm)
-        r,e=call_api(v,[gf,"Watch carefully. Generate detailed scene-by-scene description with dialogue, emotions, actions. Storytelling tone."],600)
+        r,e=call_api(v,[gf," Watch this video carefully. 
+        Generate a highly detailed, chronological scene-by-scene description. (Use a storytelling tone.)
+        Include All the dialogue in the movie, visual details, emotions, and actions. (Use a storytelling tone.)
+        No creative writing yet, just facts. "],600)
         if e: return None,f"Analysis failed: {e}"
         desc,_=get_text(r)
         time.sleep(5)
         if s: s.info("Step 3/3: Writing script...")
         w=genai.GenerativeModel(wm)
-        pr=f"Professional Burmese Movie Recap Scriptwriter.\n\nINPUT:\n{desc}\n{f'STYLE:{st_txt}' if st_txt else ''}\n{f'CUSTOM:{cust}' if cust else ''}\n\nWrite 100% Burmese, storytelling, scene-by-scene, detailed, full narration."
+        pr=f"Professional Burmese Movie Recap Scriptwriter.\n\nINPUT:\n{desc}\n{f'STYLE:{st_txt}' if st_txt else ''}\n{f'CUSTOM:{cust}' if cust else ''}\n\nYou are a professional Burmese Movie Recap Scriptwriter.
+        Turn this description into an engaging **Burmese Movie Recap Script**.
+        
+        **INPUT DATA:**
+        {video_description}
+        
+        {style_text}
+        {custom_instructions}
+        
+        **INSTRUCTIONS:**
+        1. Write in 100% Burmese.
+        2. Use a storytelling tone.
+        3. Cover the whole story.
+        4. Do not summarize too much; keep details.
+        5. Scene-by-scene.(Use a storytelling tone.) 
+        6. Full narration.                         
+        """"
         r,e=call_api(w,pr,600)
         if e: return None,f"Writing failed: {e}"
         txt,_=get_text(r)
