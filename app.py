@@ -832,51 +832,105 @@ else:
     # === TAB 6: TTS ===
     with tab6:
         st.header("Text to Speech")
+        
         with st.container(border=True):
-            if not EDGE_TTS_AVAILABLE: st.error("Edge TTS not available")
-            else:
-                tts_text = st.text_area("Text", height=200)
-                voices = get_voice_list()
-                voice = st.selectbox("Voice", list(voices.keys()))
-                rate = st.slider("Speed", -50, 50, 0, format="%d%%")
-                if st.button("Generate", use_container_width=True, key="gen_tts"):
-                    if tts_text.strip():
-                        with st.spinner("Generating..."):
-                            path, err = generate_tts(tts_text, voices[voice], rate)
-                            if path and os.path.exists(path):
-                                st.session_state['tts_audio'] = path
-                                st.success("Done!")
-        if st.session_state.get('tts_audio') and os.path.exists(st.session_state['tts_audio']):
-            with st.container(border=True):
-                with open(st.session_state['tts_audio'], 'rb') as f: audio = f.read()
-                st.audio(audio, format='audio/mp3')
-                st.download_button("Download MP3", audio, "audio.mp3", use_container_width=True)
+            # Engine ရွေးချယ်ရန် (Edge TTS လား Gemini လား)
+            tts_engine = st.radio("TTS Engine", ["Edge TTS (Free/Fast)", "Gemini AI (Pro/Natural)"], horizontal=True)
+            
+            st.markdown("---")
+            
+            # --- OPTION 1: EDGE TTS ---
+            if "Edge" in tts_engine:
+                if not EDGE_TTS_AVAILABLE:
+                    st.error("Edge TTS not available")
+                else:
+                    tts_text = st.text_area("Text Input", height=200, key="edge_text")
+                    
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        voices = get_voice_list()
+                        voice = st.selectbox("Voice", list(voices.keys()), key="edge_voice")
+                    with c2:
+                        rate = st.slider("Speed", -50, 50, 0, format="%d%%", key="edge_rate")
+                        
+                    if st.button("Generate (Edge)", use_container_width=True, key="gen_tts_edge"):
+                        if tts_text.strip():
+                            with st.spinner("Generating with Edge TTS..."):
+                                path, err = generate_tts(tts_text, voices[voice], rate)
+                                if path and os.path.exists(path):
+                                    st.session_state['tts_audio'] = path
+                                    st.success("Done!")
+                                else:
+                                    st.error(f"Error: {err}")
 
-    # === TAB 7: EDITOR ===
-    with tab7:
-        st.header("Script Editor")
-        with st.container(border=True):
-            col1, col2, col3 = st.columns(3)
-            with col1: script_file = st.file_uploader("Open", type=["txt", "docx", "srt"], key="ef", label_visibility="collapsed")
-            with col2: 
-                if st.button("Clear", use_container_width=True, key="clear_editor"):
-                    st.session_state['editor_script'] = ""
-                    st.rerun()
-            with col3: save_format = st.selectbox("Format", ["txt", "srt", "md"], label_visibility="collapsed")
-            
-            if script_file:
-                if script_file.name.endswith(('.txt', '.srt')): st.session_state['editor_script'] = script_file.getvalue().decode("utf-8")
-                elif DOCX_AVAILABLE: st.session_state['editor_script'] = read_file_content(script_file) or ""
-            
-            current = st.session_state.get('editor_script', '')
-            new_script = st.text_area("Script", current, height=400, label_visibility="collapsed")
-            if new_script != current: st.session_state['editor_script'] = new_script
-            
-            c1, c2, c3 = st.columns(3)
-            with c1: st.metric("Words", len(new_script.split()) if new_script else 0)
-            with c2: st.metric("Chars", len(new_script))
-            with c3:
-                if new_script: st.download_button("Save", new_script, f"script.{save_format}", use_container_width=True)
+            # --- OPTION 2: GEMINI AI TTS ---
+            else:
+                st.info("💡 Gemini Models က မြန်မာစကားပြောရာမှာ ပိုပြီး သဘာဝကျပါတယ်။ (Audio Generation)")
+                
+                gemini_text = st.text_area("Text Input", height=200, key="gemini_tts_text")
+                
+                # Model ရွေးချယ်ရန် (User လိုချင်သော Model များ ထည့်သွင်းထားသည်)
+                gemini_tts_model = st.selectbox(
+                    "Select Gemini Model",
+                    [
+                        "gemini-2.0-flash-exp", 
+                        "models/gemini-2.5-flash-preview-tts", 
+                        "models/gemini-2.5-pro-preview-tts"
+                    ],
+                    index=0,
+                    help="Gemini 2.0 Flash Exp က လက်ရှိ Audio ထုတ်ပေးနိုင်သော Model ဖြစ်သည်။"
+                )
+                
+                if st.button("Generate (Gemini AI)", use_container_width=True, key="gen_tts_gemini"):
+                    if not api_key:
+                        st.error("Please enter API Key in Settings first!")
+                    elif not gemini_text.strip():
+                        st.warning("Please enter text!")
+                    else:
+                        with st.spinner(f"Generating with {gemini_tts_model}..."):
+                            try:
+                                # Gemini Audio Generation Function
+                                model = genai.GenerativeModel(gemini_tts_model)
+                                
+                                response = model.generate_content(
+                                    f"Please read the following text naturally in Burmese. Text: {gemini_text}",
+                                    generation_config=genai.types.GenerationConfig(
+                                        response_mime_type="audio/mp3"
+                                    )
+                                )
+                                
+                                # Byte Data ကို File အဖြစ် ပြောင်းခြင်း
+                                if response.parts:
+                                    audio_data = response.parts[0].inline_data.data
+                                    output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+                                    with open(output_path, "wb") as f:
+                                        f.write(audio_data)
+                                    
+                                    st.session_state['tts_audio'] = output_path
+                                    st.success("Done! (Generated by Gemini)")
+                                else:
+                                    st.error("No audio data returned. Model might not support audio output yet.")
+                                    
+                            except Exception as e:
+                                st.error(f"Gemini TTS Error: {str(e)}")
+                                st.warning("Note: 'models/gemini-2.5...' models များမထွက်သေးပါက 'gemini-2.0-flash-exp' ကို ပြောင်းသုံးပေးပါ။")
+
+        # --- AUDIO PLAYER & DOWNLOAD ---
+        if st.session_state.get('tts_audio') and os.path.exists(st.session_state['tts_audio']):
+            st.markdown("### 🎧 Audio Output")
+            with st.container(border=True):
+                with open(st.session_state['tts_audio'], 'rb') as f:
+                    audio_bytes = f.read()
+                st.audio(audio_bytes, format='audio/mp3')
+                
+                # Download Button
+                st.download_button(
+                    label="⬇️ Download MP3",
+                    data=audio_bytes,
+                    file_name="tts_audio.mp3",
+                    mime="audio/mp3",
+                    use_container_width=True
+                )
 
     st.markdown("---")
     st.caption("AI Studio Pro v6.0")
