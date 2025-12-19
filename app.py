@@ -440,7 +440,7 @@ else:
                             rm_file(it['path'])
                         else:
                             pth,er=dl_gdrive(it['url'],sts)
-                            if pth:
+                         if pth:
     scr,er=process_vid(pth,it['name'],vm,wm,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
     rm_file(pth)
                             else: scr=None
