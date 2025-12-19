@@ -440,10 +440,11 @@ else:
                             rm_file(it['path'])
                         else:
                             pth,er=dl_gdrive(it['url'],sts)
-                         if pth:
-    scr,er=process_vid(pth,it['name'],vm,wm,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
-    rm_file(pth)
-                            else: scr=None
+                            if pth:
+                                scr,er=process_vid(pth,it['name'],vm,wm,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
+                                rm_file(pth)
+                            else:
+                                scr=None
                         if scr: st.session_state['video_queue'][idx]['status']='completed';st.session_state['video_queue'][idx]['script']=scr;sts.success("Done!")
                         else: st.session_state['video_queue'][idx]['status']='failed';st.session_state['video_queue'][idx]['error']=er;sts.error(er)
                         time.sleep(10);st.session_state['current_index']+=1;st.rerun()
