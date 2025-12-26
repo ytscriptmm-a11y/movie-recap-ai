@@ -328,7 +328,6 @@ if not st.session_state['user_session']:
                 if u: st.session_state['user_session']=u;st.rerun()
                 elif m=="Pending": st.warning("Pending approval")
                 else: st.error(m)
-
        with t2:
         st.subheader("Create Account")
         new_email = st.text_input("Email", key="reg_email")
