@@ -329,26 +329,19 @@ if not st.session_state['user_session']:
                 elif m=="Pending": st.warning("Pending approval")
                 else: st.error(m)
 
-       with t2: # သို့မဟုတ် tab_signup (မိတ်ဆွေကုဒ်ထဲက နာမည်အတိုင်းထားပါ)
+       with t2:
         st.subheader("Create Account")
-        new_email = st.text_input("Email", key="reg_email_new")
-        new_pass = st.text_input("Password", type="password", key="reg_pass_new")
-        
+        new_email = st.text_input("Email", key="reg_email")
+        new_pass = st.text_input("Password", type="password", key="reg_pass")
         if st.button("Sign Up", use_container_width=True):
             if new_email and new_pass:
-                # အောက်ပါ register_user နေရာတွင် မိတ်ဆွေ၏ Function နာမည် (ဥပမာ - register) ဖြစ်ရပါမည်
-                # အကယ်၍ register_user is not defined ဆိုပြီး Error တက်လျှင် 'register' ဟု ပြောင်းလိုက်ပါ
-                if 'register_user' in globals():
-                    success, msg = register_user(new_email, new_pass)
-                else:
-                    success, msg = register(new_email, new_pass)
-                
+                success, msg = register(new_email, new_pass)
                 if success:
-                    st.success("✅ " + msg)
+                    st.success(msg)
                 else:
-                    st.error("❌ " + msg)
+                    st.error(msg)
             else:
-                st.warning("⚠️ Please fill all fields")
+                st.warning("Please fill all fields")
 else:
     user=st.session_state['user_session']
     c1,c2=st.columns([5,1])
