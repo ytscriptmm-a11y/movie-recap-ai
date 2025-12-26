@@ -383,9 +383,11 @@ else:
         st.header("Video Recap")
         with st.container(border=True):
             st.subheader("Models")
-            vm=st.selectbox("Vision",["models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-pro-preview","gemini-1.5-flash"],key="vm")
-            wm=st.selectbox("Writer",["gemini-1.5-flash","gemini-2.0-flash-exp","models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-pro-preview"],key="wm")
-        with st.container(border=True):
+           vm=st.selectbox("Vision",["models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-pro-preview","gemini-1.5-flash"],key="vm")
+wm=st.selectbox("Writer",["gemini-1.5-flash","gemini-2.0-flash-exp","models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-pro-preview"],key="wm")
+vision_model = vm
+writer_model = wm
+with st.container(border=True): 
             st.subheader("Add Videos")
             mt=st.radio("Method",["Upload (200MB)","Google Drive"],horizontal=True)
             if mt=="Upload (200MB)":
@@ -436,12 +438,12 @@ else:
                         st.markdown(f"### Processing: {it['name']}")
                         sts=st.empty()
                         if it['type']=='file':
-                            scr,er=process_vid(it['path'],it['name'],vm,wm,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
+                            scr,er=process_vid(pth,it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
                             rm_file(it['path'])
                         else:
                             pth,er=dl_gdrive(it['url'],sts)
                             if pth:
-                                scr,er=process_vid(pth,it['name'],vm,wm,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
+                                scr,er=process_vid(it['path'],it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
                                 rm_file(pth)
                             else:
                                 scr=None
