@@ -153,17 +153,16 @@ def dl_gdrive(url,s=None):
         return None,"Download failed"
     except Exception as e: return None,str(e)
 
-def process_video(file_path, video_name, vision_model, writer_model, style="", custom="", status=None):
+def process_vid(file_path, video_name, vision_model, writer_model, style="", custom="", status=None):
     gemini_file = None
     try:
         if status: status.info("Step 1/3: Uploading to Gemini...")
-        gemini_file = upload_to_gemini(file_path, status)
+        gemini_file = upload_gem(file_path, status)
         if not gemini_file: return None, "Upload failed"
         
         if status: status.info("Step 2/3: AI analyzing video...")
         vision = genai.GenerativeModel(vision_model)
         
-        # ဒီစာသားမှာ Error တက်နေတာပါ (Triple Quotes """ နဲ့ သေချာပြန်ပြင်ထားပါတယ်)
         vision_prompt = """
         Watch this video carefully. 
         Generate a highly detailed, chronological scene-by-scene description. (Use a storytelling tone.)
@@ -171,9 +170,9 @@ def process_video(file_path, video_name, vision_model, writer_model, style="", c
         No creative writing yet, just facts.
         """
         
-        resp, err = call_gemini_api(vision, [gemini_file, vision_prompt], 600)
+        resp, err = call_api(vision, [gemini_file, vision_prompt], 600)
         if err: return None, f"Analysis failed: {err}"
-        video_description, _ = get_response_text_safe(resp)
+        video_description, _ = get_text(resp)
         
         time.sleep(5)
         
@@ -201,17 +200,17 @@ def process_video(file_path, video_name, vision_model, writer_model, style="", c
         6. Full narration.
         """
         
-        resp, err = call_gemini_api(writer, writer_prompt, 600)
+        resp, err = call_api(writer, writer_prompt, 600)
         if err: return None, f"Writing failed: {err}"
         
-        text, _ = get_response_text_safe(resp)
+        text, _ = get_text(resp)
         return text, None
     except Exception as e: return None, str(e)
     finally:
         if gemini_file:
             try: genai.delete_file(gemini_file.name)
             except: pass
-        force_memory_cleanup()
+        cleanup()
 
 def hash_pw(p): return hashlib.sha256(p.encode()).hexdigest()
 
@@ -329,7 +328,7 @@ if not st.session_state['user_session']:
                 if u: st.session_state['user_session']=u;st.rerun()
                 elif m=="Pending": st.warning("Pending approval")
                 else: st.error(m)
-    with t2:
+
        with t2: # သို့မဟုတ် tab_signup (မိတ်ဆွေကုဒ်ထဲက နာမည်အတိုင်းထားပါ)
         st.subheader("Create Account")
         new_email = st.text_input("Email", key="reg_email_new")
@@ -385,9 +384,9 @@ else:
             st.subheader("Models")
             vm=st.selectbox("Vision",["models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-pro-preview","gemini-1.5-flash"],key="vm")
             wm=st.selectbox("Writer",["gemini-1.5-flash","gemini-2.0-flash-exp","models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-pro-preview"],key="wm")
-                vision_model = vm
-                writer_model = wm
-        with st.container(border=True): 
+        vision_model = vm
+        writer_model = wm
+        with st.container(border=True):
             st.subheader("Add Videos")
             mt=st.radio("Method",["Upload (200MB)","Google Drive"],horizontal=True)
             if mt=="Upload (200MB)":
@@ -396,8 +395,10 @@ else:
                     for v in (vids or [])[:10-len(st.session_state['video_queue'])]:
                         v.seek(0,2)
                         if v.tell()<=200*1024*1024:
-                            v.seek(0);p,_=save_up(v)
-                            if p: st.session_state['video_queue'].append({'name':v.name,'type':'file','path':p,'url':None,'status':'waiting','script':None,'error':None})
+                            v.seek(0)
+                            p,_=save_up(v)
+                            if p:
+                                st.session_state['video_queue'].append({'name':v.name,'type':'file','path':p,'url':None,'status':'waiting','script':None,'error':None})
                     st.rerun()
             else:
                 lks=st.text_area("Links",height=100)
@@ -409,25 +410,39 @@ else:
         with st.expander("Custom"):
             st.session_state['custom_prompt']=st.text_area("Instructions",st.session_state.get('custom_prompt',''),height=60)
             sf=st.file_uploader("Style",type=["txt","pdf","docx"],key="sf")
-            if sf and (c:=read_file(sf)): st.session_state['style_text']=c[:5000];st.success(f"Loaded: {sf.name}")
+            if sf:
+                c=read_file(sf)
+                if c:
+                    st.session_state['style_text']=c[:5000]
+                    st.success(f"Loaded: {sf.name}")
         with st.container(border=True):
             st.subheader("Queue")
-            if not st.session_state['video_queue']: st.info("No videos")
+            if not st.session_state['video_queue']:
+                st.info("No videos")
             else:
-                tot=len(st.session_state['video_queue']);dn=sum(1 for v in st.session_state['video_queue'] if v['status']=='completed')
-                st.progress(dn/tot);st.caption(f"{dn}/{tot}")
+                tot=len(st.session_state['video_queue'])
+                dn=sum(1 for v in st.session_state['video_queue'] if v['status']=='completed')
+                st.progress(dn/tot)
+                st.caption(f"{dn}/{tot}")
                 for i,it in enumerate(st.session_state['video_queue']):
                     st.markdown(f"**{i+1}. {it['name']}** - {it['status']}")
-                    if it['status']=='completed' and it['script']: st.download_button(f"DL#{i+1}",it['script'],f"{it['name']}_recap.txt",key=f"dl_{i}")
-                    if it['status']=='failed': st.error(it['error'][:100] if it['error'] else "Error")
+                    if it['status']=='completed' and it['script']:
+                        st.download_button(f"DL#{i+1}",it['script'],f"{it['name']}_recap.txt",key=f"dl_{i}")
+                    if it['status']=='failed':
+                        st.error(it['error'][:100] if it['error'] else "Error")
             c1,c2=st.columns(2)
             with c1:
                 if st.button("Start",disabled=not st.session_state['video_queue'] or st.session_state['processing_active'] or not api_key,use_container_width=True):
-                    st.session_state['processing_active']=True;st.session_state['current_index']=0;st.rerun()
+                    st.session_state['processing_active']=True
+                    st.session_state['current_index']=0
+                    st.rerun()
             with c2:
                 if st.button("Clear",disabled=not st.session_state['video_queue'],use_container_width=True,key="cq"):
-                    for it in st.session_state['video_queue']: rm_file(it.get('path'))
-                    st.session_state['video_queue']=[];st.session_state['processing_active']=False;st.rerun()
+                    for it in st.session_state['video_queue']:
+                        rm_file(it.get('path'))
+                    st.session_state['video_queue']=[]
+                    st.session_state['processing_active']=False
+                    st.rerun()
         if st.session_state['processing_active']:
             idx=st.session_state['current_index']
             if idx<len(st.session_state['video_queue']):
@@ -437,20 +452,31 @@ else:
                     with st.container(border=True):
                         st.markdown(f"### Processing: {it['name']}")
                         sts=st.empty()
+                        scr=None
+                        er=None
                         if it['type']=='file':
                             scr,er=process_vid(it['path'],it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
                             rm_file(it['path'])
                         else:
                             pth,er=dl_gdrive(it['url'],sts)
                             if pth:
-                                scr,er=process_vid(it['path'],it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
+                                scr,er=process_vid(pth,it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
                                 rm_file(pth)
-                            else:
-                                scr=None
-                        if scr: st.session_state['video_queue'][idx]['status']='completed';st.session_state['video_queue'][idx]['script']=scr;sts.success("Done!")
-                        else: st.session_state['video_queue'][idx]['status']='failed';st.session_state['video_queue'][idx]['error']=er;sts.error(er)
-                        time.sleep(10);st.session_state['current_index']+=1;st.rerun()
-            else: st.success("All done!");st.balloons();st.session_state['processing_active']=False
+                        if scr:
+                            st.session_state['video_queue'][idx]['status']='completed'
+                            st.session_state['video_queue'][idx]['script']=scr
+                            sts.success("Done!")
+                        else:
+                            st.session_state['video_queue'][idx]['status']='failed'
+                            st.session_state['video_queue'][idx]['error']=er
+                            sts.error(er if er else "Unknown error")
+                        time.sleep(10)
+                        st.session_state['current_index']+=1
+                        st.rerun()
+            else:
+                st.success("All done!")
+                st.balloons()
+                st.session_state['processing_active']=False
 
     with t2:
         st.header("Translator")
