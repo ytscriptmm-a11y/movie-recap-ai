@@ -167,7 +167,10 @@ def process_vid(file_path, video_name, vision_model, writer_model, style="", cus
         Watch this video carefully. 
         Generate a highly detailed, chronological scene-by-scene description. (Use a storytelling tone.)
         Include All the dialogue in the movie, visual details, emotions, and actions. (Scene-by-scene)
-        No creative writing yet, just facts.
+        No creative writing yet, just facts. Double-check that character names and identities are accurate. 
+        Verify the chronological order of the scenes. 
+        Ensure strict adherence to the timeline so that earlier and later scenes are not out of sequence.
+
         """
         
         resp, err = call_api(vision, [gemini_file, vision_prompt], 600)
@@ -197,7 +200,10 @@ def process_vid(file_path, video_name, vision_model, writer_model, style="", cus
         3. Cover the whole story.
         4. Do not summarize too much; keep details.
         5. Scene-by-scene.(Use a storytelling tone.) 
-        6. Full narration.
+        6. Full narration.Double-check that character names and identities are accurate. 
+        Verify the chronological order of the scenes. 
+        Ensure strict adherence to the timeline so that earlier and later scenes are not out of sequence.
+
         """
         
         resp, err = call_api(writer, writer_prompt, 600)
