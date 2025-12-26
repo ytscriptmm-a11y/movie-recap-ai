@@ -438,7 +438,7 @@ with st.container(border=True):
                         st.markdown(f"### Processing: {it['name']}")
                         sts=st.empty()
                         if it['type']=='file':
-                            scr,er=process_vid(pth,it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
+                            scr,er=process_vid(it['path'],it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
                             rm_file(it['path'])
                         else:
                             pth,er=dl_gdrive(it['url'],sts)
