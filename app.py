@@ -166,7 +166,7 @@ def process_vid(file_path, video_name, vision_model, writer_model, style="", cus
         vision_prompt = """
         Watch this video carefully. 
         Generate a highly detailed, chronological scene-by-scene description. (Use a storytelling tone.)
-        Include All the dialogue in the movie, visual details, emotions, and actions. (Use a storytelling tone.)
+        Include All the dialogue in the movie, visual details, emotions, and actions. (Scene-by-scene)
         No creative writing yet, just facts.
         """
         
