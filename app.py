@@ -78,7 +78,7 @@ def get_text(r):
         return (t,None) if t else (None,"No text")
     except Exception as e: return None,str(e)
 
-def call_api(m,c,to=600):
+def call_api(m,c,to=900):
     for i in range(3):
         try:
             r=m.generate_content(c,request_options={"timeout":to})
@@ -480,44 +480,105 @@ else:
         st.header("Translator")
         with st.container(border=True):
             c1,c2=st.columns([3,1])
-            with c2: tm=st.selectbox("Model",["gemini-1.5-flash","gemini-2.0-flash-exp","models/gemini-2.5-flash","models/gemini-3-pro-preview"],key="tm")
-            with c1: lngs={"Burmese":"Burmese","English":"English","Thai":"Thai","Chinese":"Chinese","Japanese":"Japanese","Korean":"Korean"};tl=st.selectbox("Target",list(lngs.keys()))
+            with c2:
+                tm=st.selectbox("Model",["models/gemini-2.5-flash","models/gemini-2.5-pro","gemini-2.0-flash-exp","gemini-1.5-flash"],key="tm")
+            with c1:
+                lngs={"Burmese":"Burmese","English":"English","Thai":"Thai","Chinese":"Chinese","Japanese":"Japanese","Korean":"Korean"}
+                tl=st.selectbox("Target",list(lngs.keys()))
             tf=st.file_uploader("File",type=["mp3","mp4","txt","srt","docx"],key="tf")
             tsf=st.file_uploader("Style (Optional)",type=["txt","pdf","docx"],key="tsf")
             tst=""
-            if tsf and (c:=read_file(tsf)): tst=c[:3000];st.success(f"Style: {tsf.name}")
+            if tsf:
+                c=read_file(tsf)
+                if c:
+                    tst=c[:3000]
+                    st.success(f"Style: {tsf.name}")
             if st.button("Translate",use_container_width=True):
-                if api_key and tf:
-                    ext=tf.name.split('.')[-1].lower();tgt=lngs[tl];mdl=genai.GenerativeModel(tm)
+                if not api_key:
+                    st.error("❌ Enter API Key first!")
+                elif not tf:
+                    st.warning("⚠️ Upload a file first!")
+                else:
+                    ext=tf.name.split('.')[-1].lower()
+                    tgt=lngs[tl]
+                    mdl=genai.GenerativeModel(tm)
                     sty=f"\n\nStyle reference:\n{tst}" if tst else ""
+                    
                     if ext in ['txt','srt']:
-                        with st.spinner("Translating..."):
-                            txt=tf.getvalue().decode("utf-8")
-                            r,_=call_api(mdl,f"Translate to {tgt}. Return ONLY translated text.{sty}\n\n{txt}")
+                        txt=tf.getvalue().decode("utf-8")
+                        st.info(f"📄 File: {tf.name} | {len(txt):,} chars")
+                        progress=st.progress(0)
+                        status=st.empty()
+                        status.info("🔄 Translating... (may take 2-5 min for large files)")
+                        progress.progress(30)
+                        r,err=call_api(mdl,f"Translate to {tgt}. Return ONLY translated text.{sty}\n\n{txt}",900)
+                        progress.progress(90)
+                        if r:
+                            res,_=get_text(r)
+                            progress.progress(100)
+                            status.success("✅ Done!")
+                            if res:
+                                st.text_area("Result",res,height=300)
+                                st.download_button("Download",res,f"trans_{tf.name}")
+                        else:
+                            progress.empty()
+                            status.error(f"❌ {err if err else 'Timeout - try faster model'}")
+                    
+                    elif ext=='docx':
+                        txt=read_file(tf)
+                        if txt:
+                            st.info(f"📄 File: {tf.name} | {len(txt):,} chars")
+                            progress=st.progress(0)
+                            status=st.empty()
+                            status.info("🔄 Translating...")
+                            progress.progress(30)
+                            r,err=call_api(mdl,f"Translate to {tgt}. Return ONLY translated text.{sty}\n\n{txt}",900)
+                            progress.progress(90)
                             if r:
                                 res,_=get_text(r)
-                                if res: st.text_area("Result",res,height=300);st.download_button("Download",res,f"trans_{tf.name}")
-                    elif ext=='docx':
-                        with st.spinner("Translating..."):
-                            txt=read_file(tf)
-                            if txt:
-                                r,_=call_api(mdl,f"Translate to {tgt}. Return ONLY translated text.{sty}\n\n{txt}")
+                                progress.progress(100)
+                                status.success("✅ Done!")
+                                if res:
+                                    st.text_area("Result",res,height=300)
+                                    st.download_button("Download",res,f"trans_{tf.name}.txt")
+                            else:
+                                progress.empty()
+                                status.error(f"❌ {err if err else 'Timeout'}")
+                    
+                    else:
+                        st.info(f"🎵 File: {tf.name}")
+                        progress=st.progress(0)
+                        status=st.empty()
+                        status.info("📤 Uploading file...")
+                        progress.progress(20)
+                        pth,_=save_up(tf)
+                        if pth:
+                            status.info("☁️ Processing on Gemini...")
+                            progress.progress(40)
+                            gf=upload_gem(pth)
+                            if gf:
+                                status.info("🔄 Transcribing & Translating...")
+                                progress.progress(60)
+                                r,err=call_api(mdl,[gf,f"Transcribe and translate to {tgt}.{sty}"],900)
+                                progress.progress(90)
                                 if r:
                                     res,_=get_text(r)
-                                    if res: st.text_area("Result",res,height=300);st.download_button("Download",res,f"trans_{tf.name}.txt")
-                    else:
-                        with st.spinner("Processing..."):
-                            pth,_=save_up(tf)
-                            if pth:
-                                gf=upload_gem(pth)
-                                if gf:
-                                    r,_=call_api(mdl,[gf,f"Transcribe and translate to {tgt}.{sty}"],600)
-                                    if r:
-                                        res,_=get_text(r)
-                                        if res: st.text_area("Result",res,height=300);st.download_button("Download",res,f"{tf.name}_trans.txt")
-                                    try: genai.delete_file(gf.name)
-                                    except: pass
-                                rm_file(pth)
+                                    progress.progress(100)
+                                    status.success("✅ Done!")
+                                    if res:
+                                        st.text_area("Result",res,height=300)
+                                        st.download_button("Download",res,f"{tf.name}_trans.txt")
+                                else:
+                                    progress.empty()
+                                    status.error(f"❌ {err if err else 'Timeout'}")
+                                try:
+                                    genai.delete_file(gf.name)
+                                except:
+                                    pass
+                            else:
+                                progress.empty()
+                                status.error("❌ Upload failed")
+                            rm_file(pth)
 
     with t3:
         st.header("AI Thumbnail")
