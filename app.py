@@ -533,12 +533,29 @@ else:
                             if res:
                                 if res:
                                 st.text_area("Result",res,height=300)
-                                srt_res=text_to_srt(res,3)
+                                if '-->' in res:
+                                    srt_res=res
+                                    txt_res=srt_to_text(res)
+                                else:
+                                    srt_res=text_to_srt(res,3)
+                                    txt_res=res
                                 dc1,dc2=st.columns(2)
                                 with dc1:
-                                    st.download_button("📄 Download TXT",res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
+                                    st.download_button("📄 Download TXT",txt_res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
                                 with dc2:
                                     st.download_button("🎬 Download SRT",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
+    lines=srt_content.split('\n')
+    text_lines=[]
+    for line in lines:
+        line=line.strip()
+        if not line:
+            continue
+        if line.isdigit():
+            continue
+        if '-->' in line:
+            continue
+        text_lines.append(line)
+    return '\n'.join(text_lines)
                         else:
                             progress.empty()
                             status.error(f"❌ {err if err else 'Timeout - try faster model'}")
@@ -558,13 +575,18 @@ else:
                                 progress.progress(100)
                                 status.success("✅ Done!")
                                 if res:
-                                    st.text_area("Result",res,height=300)
+                                st.text_area("Result",res,height=300)
+                                if '-->' in res:
+                                    srt_res=res
+                                    txt_res=srt_to_text(res)
+                                else:
                                     srt_res=text_to_srt(res,3)
-                                    dc1,dc2=st.columns(2)
-                                    with dc1:
-                                        st.download_button("📄 Download TXT",res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
-                                    with dc2:
-                                        st.download_button("🎬 Download SRT",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
+                                    txt_res=res
+                                dc1,dc2=st.columns(2)
+                                with dc1:
+                                    st.download_button("📄 Download TXT",txt_res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
+                                with dc2:
+                                    st.download_button("🎬 Download SRT",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
                             else:
                                 progress.empty()
                                 status.error(f"❌ {err if err else 'Timeout'}")
@@ -590,13 +612,18 @@ else:
                                     progress.progress(100)
                                     status.success("✅ Done!")
                                     if res:
-                                        st.text_area("Result",res,height=300)
-                                        srt_res=text_to_srt(res,3)
-                                        dc1,dc2=st.columns(2)
-                                        with dc1:
-                                            st.download_button("📄 Download TXT",res,f"{tf.name.rsplit('.',1)[0]}_trans.txt",use_container_width=True)
-                                        with dc2:
-                                            st.download_button("🎬 Download SRT",srt_res,f"{tf.name.rsplit('.',1)[0]}_trans.srt",use_container_width=True)
+                                st.text_area("Result",res,height=300)
+                                if '-->' in res:
+                                    srt_res=res
+                                    txt_res=srt_to_text(res)
+                                else:
+                                    srt_res=text_to_srt(res,3)
+                                    txt_res=res
+                                dc1,dc2=st.columns(2)
+                                with dc1:
+                                    st.download_button("📄 Download TXT",txt_res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
+                                with dc2:
+                                    st.download_button("🎬 Download SRT",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
 ```
 
 ---
