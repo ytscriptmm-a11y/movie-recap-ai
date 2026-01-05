@@ -309,6 +309,19 @@ def rm_dup(t): seen=set();return '\n'.join([l for l in t.split('\n') if not(l in
 def fr(t,f,r): return t.replace(f,r)
 def add_pf(t,p): return '\n'.join([p+l for l in t.split('\n')])
 def add_sf(t,s): return '\n'.join([l+s for l in t.split('\n')])
+def text_to_srt(text, sec_per_line=3):
+    lines=[l.strip() for l in text.split('\n') if l.strip()]
+    srt_out=[]
+    for i,line in enumerate(lines):
+        start=i*sec_per_line
+        end=(i+1)*sec_per_line
+        sh,sm,ss=start//3600,(start%3600)//60,start%60
+        eh,em,es=end//3600,(end%3600)//60,end%60
+        srt_out.append(f"{i+1}")
+        srt_out.append(f"{sh:02d}:{sm:02d}:{ss:02d},000 --> {eh:02d}:{em:02d}:{es:02d},000")
+        srt_out.append(line)
+        srt_out.append("")
+    return '\n'.join(srt_out)    
 def to_srt(t,s=3):
     ls=[l for l in t.split('\n') if l.strip()];o=[]
     for i,l in enumerate(ls):
@@ -518,12 +531,14 @@ else:
                             progress.progress(100)
                             status.success("✅ Done!")
                             if res:
+                                if res:
                                 st.text_area("Result",res,height=300)
+                                srt_res=text_to_srt(res,3)
                                 dc1,dc2=st.columns(2)
                                 with dc1:
                                     st.download_button("📄 Download TXT",res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
                                 with dc2:
-                                    st.download_button("🎬 Download SRT",res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
+                                    st.download_button("🎬 Download SRT",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
                         else:
                             progress.empty()
                             status.error(f"❌ {err if err else 'Timeout - try faster model'}")
@@ -544,11 +559,12 @@ else:
                                 status.success("✅ Done!")
                                 if res:
                                     st.text_area("Result",res,height=300)
+                                    srt_res=text_to_srt(res,3)
                                     dc1,dc2=st.columns(2)
                                     with dc1:
                                         st.download_button("📄 Download TXT",res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
                                     with dc2:
-                                        st.download_button("🎬 Download SRT",res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
+                                        st.download_button("🎬 Download SRT",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
                             else:
                                 progress.empty()
                                 status.error(f"❌ {err if err else 'Timeout'}")
@@ -575,11 +591,29 @@ else:
                                     status.success("✅ Done!")
                                     if res:
                                         st.text_area("Result",res,height=300)
+                                        srt_res=text_to_srt(res,3)
                                         dc1,dc2=st.columns(2)
                                         with dc1:
                                             st.download_button("📄 Download TXT",res,f"{tf.name.rsplit('.',1)[0]}_trans.txt",use_container_width=True)
                                         with dc2:
-                                            st.download_button("🎬 Download SRT",res,f"{tf.name.rsplit('.',1)[0]}_trans.srt",use_container_width=True)
+                                            st.download_button("🎬 Download SRT",srt_res,f"{tf.name.rsplit('.',1)[0]}_trans.srt",use_container_width=True)
+```
+
+---
+
+## 📋 SRT Output Example
+```
+1
+00:00:00,000 --> 00:00:03,000
+ကိုစကြီးပံုပဲ၊ ရောင်တာ ပိုကောင်းတယ်။
+
+2
+00:00:03,000 --> 00:00:06,000
+အခု မရှိတော့ဘူး
+
+3
+00:00:06,000 --> 00:00:09,000
+ကောင်းပြီ၊ ခင်ဗျားတို့ အဆင်ပြေအောင်...
                                 else:
                                     progress.empty()
                                     status.error(f"❌ {err if err else 'Timeout'}")
