@@ -519,7 +519,11 @@ else:
                             status.success("✅ Done!")
                             if res:
                                 st.text_area("Result",res,height=300)
-                                st.download_button("Download",res,f"trans_{tf.name}")
+                                dc1,dc2=st.columns(2)
+                                with dc1:
+                                    st.download_button("📄 Download TXT",res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
+                                with dc2:
+                                    st.download_button("🎬 Download SRT",res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
                         else:
                             progress.empty()
                             status.error(f"❌ {err if err else 'Timeout - try faster model'}")
@@ -540,7 +544,11 @@ else:
                                 status.success("✅ Done!")
                                 if res:
                                     st.text_area("Result",res,height=300)
-                                    st.download_button("Download",res,f"trans_{tf.name}.txt")
+                                    dc1,dc2=st.columns(2)
+                                    with dc1:
+                                        st.download_button("📄 Download TXT",res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
+                                    with dc2:
+                                        st.download_button("🎬 Download SRT",res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
                             else:
                                 progress.empty()
                                 status.error(f"❌ {err if err else 'Timeout'}")
@@ -567,7 +575,11 @@ else:
                                     status.success("✅ Done!")
                                     if res:
                                         st.text_area("Result",res,height=300)
-                                        st.download_button("Download",res,f"{tf.name}_trans.txt")
+                                        dc1,dc2=st.columns(2)
+                                        with dc1:
+                                            st.download_button("📄 Download TXT",res,f"{tf.name.rsplit('.',1)[0]}_trans.txt",use_container_width=True)
+                                        with dc2:
+                                            st.download_button("🎬 Download SRT",res,f"{tf.name.rsplit('.',1)[0]}_trans.srt",use_container_width=True)
                                 else:
                                     progress.empty()
                                     status.error(f"❌ {err if err else 'Timeout'}")
