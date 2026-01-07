@@ -323,8 +323,6 @@ def srt_to_text(srt_content):
         text_lines.append(line)
     return '\n'.join(text_lines)
 
-**ထည့်ပြီးရင်** Line order ဒီလိုဖြစ်ရမယ်:
-```
 Line 311: def add_sf(t,s): ...
 Line 312: def srt_to_text(srt_content):  <-- အသစ်ထည့်
 ...
