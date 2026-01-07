@@ -541,9 +541,9 @@ else:
                                     txt_res=res
                                 dc1,dc2=st.columns(2)
                                 with dc1:
-                                    st.download_button("📄 Download TXT",txt_res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
+                                    st.download_button("📄 TXT",txt_res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
                                 with dc2:
-                                    st.download_button("🎬 Download SRT",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
+                                    st.download_button("🎬 SRT",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
     lines=srt_content.split('\n')
     text_lines=[]
     for line in lines:
