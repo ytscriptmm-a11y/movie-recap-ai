@@ -309,6 +309,29 @@ def rm_dup(t): seen=set();return '\n'.join([l for l in t.split('\n') if not(l in
 def fr(t,f,r): return t.replace(f,r)
 def add_pf(t,p): return '\n'.join([p+l for l in t.split('\n')])
 def add_sf(t,s): return '\n'.join([l+s for l in t.split('\n')])
+def srt_to_text(srt_content):
+    lines=srt_content.split('\n')
+    text_lines=[]
+    for line in lines:
+        line=line.strip()
+        if not line:
+            continue
+        if line.isdigit():
+            continue
+        if '-->' in line:
+            continue
+        text_lines.append(line)
+    return '\n'.join(text_lines)
+```
+
+---
+
+**ထည့်ပြီးရင်** Line order ဒီလိုဖြစ်ရမယ်:
+```
+Line 311: def add_sf(t,s): ...
+Line 312: def srt_to_text(srt_content):  <-- အသစ်ထည့်
+...
+Line 323: def text_to_srt(text, sec_per_line=3):  <-- ရှိပြီးသား    
 def text_to_srt(text, sec_per_line=3):
     lines=[l.strip() for l in text.split('\n') if l.strip()]
     srt_out=[]
@@ -508,28 +531,28 @@ else:
                     st.success(f"Style: {tsf.name}")
             if st.button("Translate",use_container_width=True):
                 if not api_key:
-                    st.error("❌ Enter API Key first!")
+                    st.error("Enter API Key first!")
                 elif not tf:
-                    st.warning("⚠️ Upload a file first!")
+                    st.warning("Upload a file first!")
                 else:
                     ext=tf.name.split('.')[-1].lower()
                     tgt=lngs[tl]
                     mdl=genai.GenerativeModel(tm)
                     sty=f"\n\nStyle reference:\n{tst}" if tst else ""
                     
-                 if ext in ['txt','srt']:
+                    if ext in ['txt','srt']:
                         txt=tf.getvalue().decode("utf-8")
-                        st.info(f"📄 File: {tf.name} | {len(txt):,} chars")
+                        st.info(f"File: {tf.name} | {len(txt):,} chars")
                         progress=st.progress(0)
                         status=st.empty()
-                        status.info("🔄 Translating... (may take 2-5 min for large files)")
+                        status.info("Translating... (may take 2-5 min)")
                         progress.progress(30)
                         r,err=call_api(mdl,f"Translate to {tgt}. Return ONLY translated text.{sty}\n\n{txt}",900)
                         progress.progress(90)
                         if r:
                             res,_=get_text(r)
                             progress.progress(100)
-                            status.success("✅ Done!")
+                            status.success("Done!")
                             if res:
                                 st.text_area("Result",res,height=300)
                                 if '-->' in res:
@@ -540,119 +563,87 @@ else:
                                     txt_res=res
                                 dc1,dc2=st.columns(2)
                                 with dc1:
-                                    st.download_button("📄 TXT",txt_res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
+                                    st.download_button("TXT Download",txt_res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
                                 with dc2:
-                                    st.download_button("🎬 SRT",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
+                                    st.download_button("SRT Download",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
                         else:
                             progress.empty()
-                            status.error(f"❌ {err if err else 'Timeout - try faster model'}")
-    lines=srt_content.split('\n')
-    text_lines=[]
-    for line in lines:
-        line=line.strip()
-        if not line:
-            continue
-        if line.isdigit():
-            continue
-        if '-->' in line:
-            continue
-        text_lines.append(line)
-    return '\n'.join(text_lines)
-                        else:
-                            progress.empty()
-                            status.error(f"❌ {err if err else 'Timeout - try faster model'}")
+                            status.error(f"Error: {err if err else 'Timeout'}")
                     
                     elif ext=='docx':
                         txt=read_file(tf)
                         if txt:
-                            st.info(f"📄 File: {tf.name} | {len(txt):,} chars")
+                            st.info(f"File: {tf.name} | {len(txt):,} chars")
                             progress=st.progress(0)
                             status=st.empty()
-                            status.info("🔄 Translating...")
+                            status.info("Translating...")
                             progress.progress(30)
                             r,err=call_api(mdl,f"Translate to {tgt}. Return ONLY translated text.{sty}\n\n{txt}",900)
                             progress.progress(90)
                             if r:
                                 res,_=get_text(r)
                                 progress.progress(100)
-                                status.success("✅ Done!")
+                                status.success("Done!")
                                 if res:
-                                st.text_area("Result",res,height=300)
-                                if '-->' in res:
-                                    srt_res=res
-                                    txt_res=srt_to_text(res)
-                                else:
-                                    srt_res=text_to_srt(res,3)
-                                    txt_res=res
-                                dc1,dc2=st.columns(2)
-                                with dc1:
-                                    st.download_button("📄 Download TXT",txt_res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
-                                with dc2:
-                                    st.download_button("🎬 Download SRT",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
+                                    st.text_area("Result",res,height=300)
+                                    if '-->' in res:
+                                        srt_res=res
+                                        txt_res=srt_to_text(res)
+                                    else:
+                                        srt_res=text_to_srt(res,3)
+                                        txt_res=res
+                                    dc1,dc2=st.columns(2)
+                                    with dc1:
+                                        st.download_button("TXT Download",txt_res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
+                                    with dc2:
+                                        st.download_button("SRT Download",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
                             else:
                                 progress.empty()
-                                status.error(f"❌ {err if err else 'Timeout'}")
+                                status.error(f"Error: {err if err else 'Timeout'}")
                     
                     else:
-                        st.info(f"🎵 File: {tf.name}")
+                        st.info(f"File: {tf.name}")
                         progress=st.progress(0)
                         status=st.empty()
-                        status.info("📤 Uploading file...")
+                        status.info("Uploading file...")
                         progress.progress(20)
                         pth,_=save_up(tf)
                         if pth:
-                            status.info("☁️ Processing on Gemini...")
+                            status.info("Processing on Gemini...")
                             progress.progress(40)
                             gf=upload_gem(pth)
                             if gf:
-                                status.info("🔄 Transcribing & Translating...")
+                                status.info("Transcribing & Translating...")
                                 progress.progress(60)
                                 r,err=call_api(mdl,[gf,f"Transcribe and translate to {tgt}.{sty}"],900)
                                 progress.progress(90)
                                 if r:
                                     res,_=get_text(r)
                                     progress.progress(100)
-                                    status.success("✅ Done!")
+                                    status.success("Done!")
                                     if res:
-                                st.text_area("Result",res,height=300)
-                                if '-->' in res:
-                                    srt_res=res
-                                    txt_res=srt_to_text(res)
-                                else:
-                                    srt_res=text_to_srt(res,3)
-                                    txt_res=res
-                                dc1,dc2=st.columns(2)
-                                with dc1:
-                                    st.download_button("📄 Download TXT",txt_res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
-                                with dc2:
-                                    st.download_button("🎬 Download SRT",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
-```
-
----
-
-## 📋 SRT Output Example
-```
-1
-00:00:00,000 --> 00:00:03,000
-ကိုစကြီးပံုပဲ၊ ရောင်တာ ပိုကောင်းတယ်။
-
-2
-00:00:03,000 --> 00:00:06,000
-အခု မရှိတော့ဘူး
-
-3
-00:00:06,000 --> 00:00:09,000
-ကောင်းပြီ၊ ခင်ဗျားတို့ အဆင်ပြေအောင်...
+                                        st.text_area("Result",res,height=300)
+                                        if '-->' in res:
+                                            srt_res=res
+                                            txt_res=srt_to_text(res)
+                                        else:
+                                            srt_res=text_to_srt(res,3)
+                                            txt_res=res
+                                        dc1,dc2=st.columns(2)
+                                        with dc1:
+                                            st.download_button("TXT Download",txt_res,f"{tf.name.rsplit('.',1)[0]}_trans.txt",use_container_width=True)
+                                        with dc2:
+                                            st.download_button("SRT Download",srt_res,f"{tf.name.rsplit('.',1)[0]}_trans.srt",use_container_width=True)
                                 else:
                                     progress.empty()
-                                    status.error(f"❌ {err if err else 'Timeout'}")
+                                    status.error(f"Error: {err if err else 'Timeout'}")
                                 try:
                                     genai.delete_file(gf.name)
                                 except:
                                     pass
                             else:
                                 progress.empty()
-                                status.error("❌ Upload failed")
+                                status.error("Upload failed")
                             rm_file(pth)
 
     with t3:
