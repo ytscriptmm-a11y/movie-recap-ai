@@ -517,7 +517,7 @@ else:
                     mdl=genai.GenerativeModel(tm)
                     sty=f"\n\nStyle reference:\n{tst}" if tst else ""
                     
-                    if ext in ['txt','srt']:
+                 if ext in ['txt','srt']:
                         txt=tf.getvalue().decode("utf-8")
                         st.info(f"📄 File: {tf.name} | {len(txt):,} chars")
                         progress=st.progress(0)
@@ -531,7 +531,6 @@ else:
                             progress.progress(100)
                             status.success("✅ Done!")
                             if res:
-                                if res:
                                 st.text_area("Result",res,height=300)
                                 if '-->' in res:
                                     srt_res=res
@@ -544,6 +543,9 @@ else:
                                     st.download_button("📄 TXT",txt_res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
                                 with dc2:
                                     st.download_button("🎬 SRT",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
+                        else:
+                            progress.empty()
+                            status.error(f"❌ {err if err else 'Timeout - try faster model'}")
     lines=srt_content.split('\n')
     text_lines=[]
     for line in lines:
