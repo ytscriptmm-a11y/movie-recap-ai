@@ -322,7 +322,6 @@ def srt_to_text(srt_content):
             continue
         text_lines.append(line)
     return '\n'.join(text_lines)
-
 Line 311: def add_sf(t,s): ...
 Line 312: def srt_to_text(srt_content):  <-- အသစ်ထည့်
 ...
