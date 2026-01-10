@@ -407,8 +407,8 @@ else:
         st.header("Video Recap")
         with st.container(border=True):
             st.subheader("Models")
-            vm=st.selectbox("Vision",["models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-pro-preview","gemini-1.5-flash"],key="vm")
-            wm=st.selectbox("Writer",["gemini-1.5-flash","gemini-2.0-flash-exp","models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-pro-preview"],key="wm")
+            vm=st.selectbox("Vision",["gemini-1.5-flash","gemini-2.0-flash-exp","models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-flash-preview","models/gemini-3-pro-preview"],key="vm")
+            wm=st.selectbox("Writer",["gemini-1.5-flash","gemini-2.0-flash-exp","models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-flash-preview","models/gemini-3-pro-preview"],key="wm")
         vision_model = vm
         writer_model = wm
         with st.container(border=True):
