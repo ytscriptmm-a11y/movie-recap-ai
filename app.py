@@ -10,6 +10,7 @@ import asyncio
 import struct
 import re
 from PIL import Image
+from examples import get_recap_examples
 
 # --- LIBRARY IMPORTS ---
 PDF_AVAILABLE, DOCX_AVAILABLE, GDOWN_AVAILABLE, SUPABASE_AVAILABLE, EDGE_TTS_AVAILABLE, GENAI_NEW_AVAILABLE = True, True, True, True, True, True
@@ -153,7 +154,7 @@ def dl_gdrive(url,s=None):
         return None,"Download failed"
     except Exception as e: return None,str(e)
 
-def process_vid(file_path, video_name, vision_model, writer_model, style="", custom="", status=None):
+def process_vid(file_path, video_name, vision_model, writer_model, style="", custom="", status=None, use_examples=True):
     gemini_file = None
     try:
         if status: status.info("Step 1/3: Uploading to Gemini...")
@@ -184,6 +185,7 @@ def process_vid(file_path, video_name, vision_model, writer_model, style="", cus
         
         custom_instructions = f"\n\n**CUSTOM INSTRUCTIONS:**\n{custom}\n" if custom else ""
         style_text = f"\n\n**WRITING STYLE REFERENCE:**\n{style}\n" if style else ""
+        examples_text = f"\n\n**RECAP STYLE EXAMPLES (ဒီပုံစံအတိုင်း ရေးပါ):**\n{get_recap_examples()}\n" if use_examples else ""
         
         writer_prompt = f"""
         You are a professional Burmese Movie Recap Scriptwriter.
@@ -193,6 +195,7 @@ def process_vid(file_path, video_name, vision_model, writer_model, style="", cus
         {video_description}
         {style_text}
         {custom_instructions}
+        {examples_text}
         
         **INSTRUCTIONS:**
         1. Write in 100% Burmese.
@@ -409,6 +412,7 @@ else:
             st.subheader("Models")
             vm=st.selectbox("Vision",["gemini-1.5-flash","gemini-2.0-flash-exp","models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-flash-preview","models/gemini-3-pro-preview"],key="vm")
             wm=st.selectbox("Writer",["gemini-1.5-flash","gemini-2.0-flash-exp","models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-flash-preview","models/gemini-3-pro-preview"],key="wm")
+            use_examples=st.checkbox("📚 နမူနာများ အသုံးပြု (Recap ပိုကောင်းစေသည်)",value=True,key="use_examples")
         vision_model = vm
         writer_model = wm
         with st.container(border=True):
@@ -480,12 +484,12 @@ else:
                         scr=None
                         er=None
                         if it['type']=='file':
-                            scr,er=process_vid(it['path'],it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
+                            scr,er=process_vid(it['path'],it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts,st.session_state.get('use_examples',True))
                             rm_file(it['path'])
                         else:
                             pth,er=dl_gdrive(it['url'],sts)
                             if pth:
-                                scr,er=process_vid(pth,it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
+                                scr,er=process_vid(pth,it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts,st.session_state.get('use_examples',True))
                                 rm_file(pth)
                         if scr:
                             st.session_state['video_queue'][idx]['status']='completed'
