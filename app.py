@@ -573,7 +573,7 @@ else:
                 else:
                     tgt=lngs[tl]
                     mdl=genai.GenerativeModel(tm)
-                    trans_examples=get_recap_examples() if use_trans_examples else ""
+                    trans_examples=get_recap_examples() if st.session_state.get('use_trans_examples',False) else ""
                     trans_ex_text=f"\n\nWriting Style Examples:\n{trans_examples}" if trans_examples else ""
                     
                     # Video URL handling
