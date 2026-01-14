@@ -158,17 +158,27 @@ def download_video_url(url, status=None):
     """YouTube, Facebook, TikTok, Google Drive link download"""
     try:
         if status: status.info("Downloading video...")
+        
+        # Write cookies from secrets
+        try:
+            cookies_content = st.secrets["youtube"]["cookies"]
+            with open("/tmp/cookies.txt", "w") as f:
+                f.write(cookies_content)
+        except:
+            pass
+        
         if 'drive.google.com' in url:
             path, err = dl_gdrive(url, status)
             return path, err
         output_path = f"/tmp/video_{int(time.time())}.mp4"
         ydl_opts = {
-            'format': 'best[ext=mp4]/best',
-            'outtmpl': output_path,
-            'quiet': True,
-            'no_warnings': True,
-            'socket_timeout': 60,
-        }
+    'format': 'best[ext=mp4]/best',
+    'outtmpl': output_path,
+    'quiet': True,
+    'no_warnings': True,
+    'socket_timeout': 60,
+    'cookiefile': '/tmp/cookies.txt' if os.path.exists('/tmp/cookies.txt') else None,
+}
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         if os.path.exists(output_path):
