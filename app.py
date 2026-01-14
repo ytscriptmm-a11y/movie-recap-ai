@@ -560,29 +560,29 @@ else:
                 elif not tf and not video_url:
                     st.warning("Upload a file or enter URL!")
                 else:
-    # Video URL handling
-        if video_url and not tf:
-            tgt=lngs[tl]
-            mdl=genai.GenerativeModel(tm)
-            sty=f"\n\nStyle reference:\n{tst}" if tst else ""
-            progress=st.progress(0)
-            status=st.empty()
-            status.info("Downloading video...")
-            progress.progress(10)
-            pth,err=download_video_url(video_url,status)
-            if pth:
-                progress.progress(30)
-                status.info("Uploading to Gemini...")
-                gf=upload_gem(pth)
-                if gf:
-                    status.info("Transcribing & Translating...")
-                    progress.progress(50)
-                    r,err=call_api(mdl,[gf,f"Listen to this video/audio carefully. Transcribe all spoken words and translate them to {tgt}. Return ONLY the translated text in {tgt} language. Do not include original language.{sty}"],900)
-                    progress.progress(90)
-                    if r:
-                        res,_=get_text(r)
-                        progress.progress(100)
-                        status.success("Done!")
+                # Video URL handling
+                if video_url and not tf:
+                    tgt=lngs[tl]
+                    mdl=genai.GenerativeModel(tm)
+                    sty=f"\n\nStyle reference:\n{tst}" if tst else ""
+                    progress=st.progress(0)
+                    status=st.empty()
+                    status.info("Downloading video...")
+                    progress.progress(10)
+                    pth,err=download_video_url(video_url,status)
+                    if pth:
+                        progress.progress(30)
+                        status.info("Uploading to Gemini...")
+                        gf=upload_gem(pth)
+                        if gf:
+                            status.info("Transcribing & Translating...")
+                            progress.progress(50)
+                            r,err=call_api(mdl,[gf,f"Listen to this video/audio carefully..."],900)
+                            progress.progress(90)
+                            if r:
+                                res,_=get_text(r)
+                                progress.progress(100)
+                                status.success("Done!")
                     if res:
                         st.text_area("Result",res,height=300)
                         if '-->' in res:
