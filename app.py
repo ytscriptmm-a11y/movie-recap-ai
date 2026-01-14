@@ -552,8 +552,8 @@ else:
 
 
 
-            tsf=st.file_uploader("Style (Optional)",type=["txt","pdf","docx"],key="tsf")
-            tst=""
+    tsf=st.file_uploader("Style (Optional)",type=["txt","pdf","docx"],key="tsf")
+    tst=""
             if tsf:
                 c=read_file(tsf)
                 if c:
