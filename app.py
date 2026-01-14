@@ -9,6 +9,7 @@ import hashlib
 import asyncio
 import struct
 import re
+import yt_dlp
 from PIL import Image
 
 # --- LIBRARY IMPORTS ---
@@ -153,6 +154,29 @@ def dl_gdrive(url,s=None):
         return None,"Download failed"
     except Exception as e: return None,str(e)
 
+def download_video_url(url, status=None):
+    """YouTube, Facebook, TikTok, Google Drive link download"""
+    try:
+        if status: status.info("Downloading video...")
+        if 'drive.google.com' in url:
+            path, err = dl_gdrive(url, status)
+            return path, err
+        output_path = f"/tmp/video_{int(time.time())}.mp4"
+        ydl_opts = {
+            'format': 'best[ext=mp4]/best',
+            'outtmpl': output_path,
+            'quiet': True,
+            'no_warnings': True,
+            'socket_timeout': 60,
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        if os.path.exists(output_path):
+            return output_path, None
+        else:
+            return None, "Download failed"
+    except Exception as e:
+        return None, str(e)
 def process_vid(file_path, video_name, vision_model, writer_model, style="", custom="", status=None):
     gemini_file = None
     try:
@@ -516,7 +540,20 @@ else:
             with c1:
                 lngs={"Burmese":"Burmese","English":"English","Thai":"Thai","Chinese":"Chinese","Japanese":"Japanese","Korean":"Korean"}
                 tl=st.selectbox("Target",list(lngs.keys()))
-            tf=st.file_uploader("File",type=["mp3","mp4","txt","srt","docx"],key="tf")
+            input_type=st.radio("Input Type",["File Upload","Video URL"],horizontal=True,key="input_type")
+if input_type=="File Upload":
+    tf=st.file_uploader("File",type=["mp3","mp4","txt","srt","docx"],key="tf")
+    video_url=None
+else:
+    tf=None
+    video_url=st.text_input("Video URL",placeholder="YouTube, Facebook, TikTok, Google Drive link",key="video_url")
+```
+
+---
+
+### 4️⃣ requirements.txt မှာ ထည့်ပါ
+```
+yt-dlp
             tsf=st.file_uploader("Style (Optional)",type=["txt","pdf","docx"],key="tsf")
             tst=""
             if tsf:
@@ -527,10 +564,77 @@ else:
             if st.button("Translate",use_container_width=True):
                 if not api_key:
                     st.error("Enter API Key first!")
-                elif not tf:
-                    st.warning("Upload a file first!")
+                elif not tf and not video_url:
+    st.warning("Upload a file or enter URL!")
                 else:
-                    ext=tf.name.split('.')[-1].lower()
+    # Video URL handling
+    if video_url and not tf:
+        tgt=lngs[tl]
+        mdl=genai.GenerativeModel(tm)
+        sty=f"\n\nStyle reference:\n{tst}" if tst else ""
+        progress=st.progress(0)
+        status=st.empty()
+        status.info("Downloading video...")
+        progress.progress(10)
+        pth,err=download_video_url(video_url,status)
+        if pth:
+            progress.progress(30)
+            status.info("Uploading to Gemini...")
+            gf=upload_gem(pth)
+            if gf:
+                status.info("Transcribing & Translating...")
+                progress.progress(50)
+                r,err=call_api(mdl,[gf,f"Listen to this video/audio carefully. Transcribe all spoken words and translate them to {tgt}. Return ONLY the translated text in {tgt} language. Do not include original language.{sty}"],900)
+                progress.progress(90)
+                if r:
+                    res,_=get_text(r)
+                    progress.progress(100)
+                    status.success("Done!")
+                    if res:
+                        st.text_area("Result",res,height=300)
+                        if '-->' in res:
+                            srt_res=res
+                            txt_res=srt_to_text(res)
+                        else:
+                            srt_res=text_to_srt(res,3)
+                            txt_res=res
+                        dc1,dc2=st.columns(2)
+                        with dc1:
+                            st.download_button("TXT Download",txt_res,f"translated.txt",use_container_width=True)
+                        with dc2:
+                            st.download_button("SRT Download",srt_res,f"translated.srt",use_container_width=True)
+                else:
+                    progress.empty()
+                    status.error(f"Error: {err if err else 'Timeout'}")
+                try:
+                    genai.delete_file(gf.name)
+                except:
+                    pass
+            else:
+                progress.empty()
+                status.error("Upload to Gemini failed")
+            rm_file(pth)
+        else:
+            status.error(f"Download failed: {err}")
+        return
+    
+    ext=tf.name.split('.')[-1].lower()
+```
+
+---
+
+## 📋 အကျဉ်းချုပ်
+
+| Line | ပြင်ရန် |
+|------|--------|
+| 567-568 | `elif not tf and not video_url:` |
+| 569 အောက် | Video URL handling code ထည့် |
+
+---
+
+## 📍 requirements.txt မှာ ထည့်ဖို့ မမေ့နဲ့
+```
+yt-dlp
                     tgt=lngs[tl]
                     mdl=genai.GenerativeModel(tm)
                     sty=f"\n\nStyle reference:\n{tst}" if tst else ""
