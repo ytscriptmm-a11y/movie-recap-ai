@@ -560,115 +560,67 @@ else:
                 elif not tf and not video_url:
                     st.warning("Upload a file or enter URL!")
                 else:
-                    # Video URL handling
-                    if video_url and not tf:
-                            tgt=lngs[tl]
-                            mdl=genai.GenerativeModel(tm)
-                            sty=f"\n\nStyle reference:\n{tst}" if tst else ""
-                            progress=st.progress(0)
-                            status=st.empty()
-                            status.info("Downloading video...")
-                            progress.progress(10)
-                            pth,err=download_video_url(video_url,status)
-                            if pth:
-                                progress.progress(30)
-                                status.info("Uploading to Gemini...")
-                                gf=upload_gem(pth)
-                                if gf:
-                                    status.info("Transcribing & Translating...")
-                                    progress.progress(50)
-                                    r,err=call_api(mdl,[gf,f"Listen to this video/audio carefully..."],900)
-                                    progress.progress(90)
-                                    if r:
-                                        res,_=get_text(r)
-                                        progress.progress(100)
-                                        status.success("Done!")
-                    if res:
-                        st.text_area("Result",res,height=300)
-                        if '-->' in res:
-                            srt_res=res
-                            txt_res=srt_to_text(res)
-                        else:
-                            srt_res=text_to_srt(res,3)
-                            txt_res=res
-                        dc1,dc2=st.columns(2)
-                        with dc1:
-                            st.download_button("TXT Download",txt_res,f"translated.txt",use_container_width=True)
-                        with dc2:
-                            st.download_button("SRT Download",srt_res,f"translated.srt",use_container_width=True)
-                else:
-                    progress.empty()
-                    status.error(f"Error: {err if err else 'Timeout'}")
-                try:
-                    genai.delete_file(gf.name)
-                except:
-                    pass
-            else:
-                progress.empty()
-                status.error("Upload to Gemini failed")
-            rm_file(pth)
-        else:
-            status.error(f"Download failed: {err}")
-        return
-    
-    ext=tf.name.split('.')[-1].lower()
-```
-
----
-
-## 📋 အကျဉ်းချုပ်
-
-| Line | ပြင်ရန် |
-|------|--------|
-| 567-568 | `elif not tf and not video_url:` |
-| 569 အောက် | Video URL handling code ထည့် |
-
----
-
-## 📍 requirements.txt မှာ ထည့်ဖို့ မမေ့နဲ့
-```
-yt-dlp
                     tgt=lngs[tl]
                     mdl=genai.GenerativeModel(tm)
                     sty=f"\n\nStyle reference:\n{tst}" if tst else ""
                     
-                    if ext in ['txt','srt']:
-                        txt=tf.getvalue().decode("utf-8")
-                        st.info(f"File: {tf.name} | {len(txt):,} chars")
+                    # Video URL handling
+                    if video_url and not tf:
                         progress=st.progress(0)
                         status=st.empty()
-                        status.info("Translating... (may take 2-5 min)")
-                        progress.progress(30)
-                        r,err=call_api(mdl,f"Translate to {tgt}. Return ONLY translated text.{sty}\n\n{txt}",900)
-                        progress.progress(90)
-                        if r:
-                            res,_=get_text(r)
-                            progress.progress(100)
-                            status.success("Done!")
-                            if res:
-                                st.text_area("Result",res,height=300)
-                                if '-->' in res:
-                                    srt_res=res
-                                    txt_res=srt_to_text(res)
+                        status.info("Downloading video...")
+                        progress.progress(10)
+                        pth,err=download_video_url(video_url,status)
+                        if pth:
+                            progress.progress(30)
+                            status.info("Uploading to Gemini...")
+                            gf=upload_gem(pth)
+                            if gf:
+                                status.info("Transcribing & Translating...")
+                                progress.progress(50)
+                                r,err=call_api(mdl,[gf,f"Listen to this video/audio carefully. Transcribe all spoken words and translate them to {tgt}. Return ONLY the translated text in {tgt} language. Do not include original language.{sty}"],900)
+                                progress.progress(90)
+                                if r:
+                                    res,_=get_text(r)
+                                    progress.progress(100)
+                                    status.success("Done!")
+                                    if res:
+                                        st.text_area("Result",res,height=300)
+                                        if '-->' in res:
+                                            srt_res=res
+                                            txt_res=srt_to_text(res)
+                                        else:
+                                            srt_res=text_to_srt(res,3)
+                                            txt_res=res
+                                        dc1,dc2=st.columns(2)
+                                        with dc1:
+                                            st.download_button("TXT Download",txt_res,"translated.txt",use_container_width=True)
+                                        with dc2:
+                                            st.download_button("SRT Download",srt_res,"translated.srt",use_container_width=True)
                                 else:
-                                    srt_res=text_to_srt(res,3)
-                                    txt_res=res
-                                dc1,dc2=st.columns(2)
-                                with dc1:
-                                    st.download_button("TXT Download",txt_res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
-                                with dc2:
-                                    st.download_button("SRT Download",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
+                                    progress.empty()
+                                    status.error(f"Error: {err if err else 'Timeout'}")
+                                try:
+                                    genai.delete_file(gf.name)
+                                except:
+                                    pass
+                            else:
+                                progress.empty()
+                                status.error("Upload to Gemini failed")
+                            rm_file(pth)
                         else:
-                            progress.empty()
-                            status.error(f"Error: {err if err else 'Timeout'}")
+                            status.error(f"Download failed: {err}")
                     
-                    elif ext=='docx':
-                        txt=read_file(tf)
-                        if txt:
+                    # File Upload handling
+                    elif tf:
+                        ext=tf.name.split('.')[-1].lower()
+                        
+                        if ext in ['txt','srt']:
+                            txt=tf.getvalue().decode("utf-8")
                             st.info(f"File: {tf.name} | {len(txt):,} chars")
                             progress=st.progress(0)
                             status=st.empty()
-                            status.info("Translating...")
+                            status.info("Translating... (may take 2-5 min)")
                             progress.progress(30)
                             r,err=call_api(mdl,f"Translate to {tgt}. Return ONLY translated text.{sty}\n\n{txt}",900)
                             progress.progress(90)
@@ -692,22 +644,16 @@ yt-dlp
                             else:
                                 progress.empty()
                                 status.error(f"Error: {err if err else 'Timeout'}")
-                    
-                    else:
-                        st.info(f"File: {tf.name}")
-                        progress=st.progress(0)
-                        status=st.empty()
-                        status.info("Uploading file...")
-                        progress.progress(20)
-                        pth,_=save_up(tf)
-                        if pth:
-                            status.info("Processing on Gemini...")
-                            progress.progress(40)
-                            gf=upload_gem(pth)
-                            if gf:
-                                status.info("Transcribing & Translating...")
-                                progress.progress(60)
-                                r,err=call_api(mdl,[gf,f"Listen to this video/audio carefully. Transcribe all spoken words and translate them to {tgt}. Return ONLY the translated text in {tgt} language. Do not include original language.{sty}"],900)
+                        
+                        elif ext=='docx':
+                            txt=read_file(tf)
+                            if txt:
+                                st.info(f"File: {tf.name} | {len(txt):,} chars")
+                                progress=st.progress(0)
+                                status=st.empty()
+                                status.info("Translating...")
+                                progress.progress(30)
+                                r,err=call_api(mdl,f"Translate to {tgt}. Return ONLY translated text.{sty}\n\n{txt}",900)
                                 progress.progress(90)
                                 if r:
                                     res,_=get_text(r)
@@ -723,20 +669,57 @@ yt-dlp
                                             txt_res=res
                                         dc1,dc2=st.columns(2)
                                         with dc1:
-                                            st.download_button("TXT Download",txt_res,f"{tf.name.rsplit('.',1)[0]}_trans.txt",use_container_width=True)
+                                            st.download_button("TXT Download",txt_res,f"trans_{tf.name.rsplit('.',1)[0]}.txt",use_container_width=True)
                                         with dc2:
-                                            st.download_button("SRT Download",srt_res,f"{tf.name.rsplit('.',1)[0]}_trans.srt",use_container_width=True)
+                                            st.download_button("SRT Download",srt_res,f"trans_{tf.name.rsplit('.',1)[0]}.srt",use_container_width=True)
                                 else:
                                     progress.empty()
                                     status.error(f"Error: {err if err else 'Timeout'}")
-                                try:
-                                    genai.delete_file(gf.name)
-                                except:
-                                    pass
-                            else:
-                                progress.empty()
-                                status.error("Upload failed")
-                            rm_file(pth)
+                        
+                        else:
+                            st.info(f"File: {tf.name}")
+                            progress=st.progress(0)
+                            status=st.empty()
+                            status.info("Uploading file...")
+                            progress.progress(20)
+                            pth,_=save_up(tf)
+                            if pth:
+                                status.info("Processing on Gemini...")
+                                progress.progress(40)
+                                gf=upload_gem(pth)
+                                if gf:
+                                    status.info("Transcribing & Translating...")
+                                    progress.progress(60)
+                                    r,err=call_api(mdl,[gf,f"Listen to this video/audio carefully. Transcribe all spoken words and translate them to {tgt}. Return ONLY the translated text in {tgt} language. Do not include original language.{sty}"],900)
+                                    progress.progress(90)
+                                    if r:
+                                        res,_=get_text(r)
+                                        progress.progress(100)
+                                        status.success("Done!")
+                                        if res:
+                                            st.text_area("Result",res,height=300)
+                                            if '-->' in res:
+                                                srt_res=res
+                                                txt_res=srt_to_text(res)
+                                            else:
+                                                srt_res=text_to_srt(res,3)
+                                                txt_res=res
+                                            dc1,dc2=st.columns(2)
+                                            with dc1:
+                                                st.download_button("TXT Download",txt_res,f"{tf.name.rsplit('.',1)[0]}_trans.txt",use_container_width=True)
+                                            with dc2:
+                                                st.download_button("SRT Download",srt_res,f"{tf.name.rsplit('.',1)[0]}_trans.srt",use_container_width=True)
+                                    else:
+                                        progress.empty()
+                                        status.error(f"Error: {err if err else 'Timeout'}")
+                                    try:
+                                        genai.delete_file(gf.name)
+                                    except:
+                                        pass
+                                else:
+                                    progress.empty()
+                                    status.error("Upload failed")
+                                rm_file(pth)
 
     with t3:
         st.header("AI Thumbnail")
