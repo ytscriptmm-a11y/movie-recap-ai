@@ -203,7 +203,10 @@ def process_vid(file_path, video_name, vision_model, writer_model, style="", cus
         6. Full narration.Double-check that character names and identities are accurate. 
         Verify the chronological order of the scenes. 
         Ensure strict adherence to the timeline so that earlier and later scenes are not out of sequence.
-
+        "Follow these steps for quality control:
+        Watch the full video again after writing.
+        Verify the script against the video content.
+        Make immediate corrections if any errors or gaps are found." 
         """
         
         resp, err = call_api(writer, writer_prompt, 600)
