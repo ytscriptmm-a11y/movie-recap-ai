@@ -11,6 +11,7 @@ import struct
 import re
 import yt_dlp
 from PIL import Image
+from examples import get_recap_examples
 
 # --- LIBRARY IMPORTS ---
 PDF_AVAILABLE, DOCX_AVAILABLE, GDOWN_AVAILABLE, SUPABASE_AVAILABLE, EDGE_TTS_AVAILABLE, GENAI_NEW_AVAILABLE = True, True, True, True, True, True
