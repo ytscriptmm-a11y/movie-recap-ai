@@ -547,9 +547,9 @@ if input_type=="File Upload":
 else:
     tf=None
     video_url=st.text_input("Video URL",placeholder="YouTube, Facebook, TikTok, Google Drive link",key="video_url")
-```
 
----
+
+
 
 
             tsf=st.file_uploader("Style (Optional)",type=["txt","pdf","docx"],key="tsf")
