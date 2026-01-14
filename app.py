@@ -10,7 +10,6 @@ import asyncio
 import struct
 import re
 from PIL import Image
-from examples import get_recap_examples
 
 # --- LIBRARY IMPORTS ---
 PDF_AVAILABLE, DOCX_AVAILABLE, GDOWN_AVAILABLE, SUPABASE_AVAILABLE, EDGE_TTS_AVAILABLE, GENAI_NEW_AVAILABLE = True, True, True, True, True, True
@@ -154,7 +153,7 @@ def dl_gdrive(url,s=None):
         return None,"Download failed"
     except Exception as e: return None,str(e)
 
-def process_vid(file_path, video_name, vision_model, writer_model, style="", custom="", status=None, use_examples=True):
+def process_vid(file_path, video_name, vision_model, writer_model, style="", custom="", status=None):
     gemini_file = None
     try:
         if status: status.info("Step 1/3: Uploading to Gemini...")
@@ -185,7 +184,6 @@ def process_vid(file_path, video_name, vision_model, writer_model, style="", cus
         
         custom_instructions = f"\n\n**CUSTOM INSTRUCTIONS:**\n{custom}\n" if custom else ""
         style_text = f"\n\n**WRITING STYLE REFERENCE:**\n{style}\n" if style else ""
-        examples_text = f"\n\n**RECAP STYLE EXAMPLES (ဒီပုံစံအတိုင်း ရေးပါ):**\n{get_recap_examples()}\n" if use_examples else ""
         
         writer_prompt = f"""
         You are a professional Burmese Movie Recap Scriptwriter.
@@ -195,7 +193,6 @@ def process_vid(file_path, video_name, vision_model, writer_model, style="", cus
         {video_description}
         {style_text}
         {custom_instructions}
-        {examples_text}
         
         **INSTRUCTIONS:**
         1. Write in 100% Burmese.
@@ -412,7 +409,6 @@ else:
             st.subheader("Models")
             vm=st.selectbox("Vision",["gemini-1.5-flash","gemini-2.0-flash-exp","models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-flash-preview","models/gemini-3-pro-preview"],key="vm")
             wm=st.selectbox("Writer",["gemini-1.5-flash","gemini-2.0-flash-exp","models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-flash-preview","models/gemini-3-pro-preview"],key="wm")
-            use_examples=st.checkbox("📚 နမူနာများ အသုံးပြု (Recap ပိုကောင်းစေသည်)",value=True,key="use_examples")
         vision_model = vm
         writer_model = wm
         with st.container(border=True):
@@ -484,12 +480,12 @@ else:
                         scr=None
                         er=None
                         if it['type']=='file':
-                            scr,er=process_vid(it['path'],it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts,st.session_state.get('use_examples',True))
+                            scr,er=process_vid(it['path'],it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
                             rm_file(it['path'])
                         else:
                             pth,er=dl_gdrive(it['url'],sts)
                             if pth:
-                                scr,er=process_vid(pth,it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts,st.session_state.get('use_examples',True))
+                                scr,er=process_vid(pth,it['name'],vision_model,writer_model,st.session_state.get('style_text',''),st.session_state.get('custom_prompt',''),sts)
                                 rm_file(pth)
                         if scr:
                             st.session_state['video_queue'][idx]['status']='completed'
@@ -652,11 +648,23 @@ else:
                 for i,im in enumerate(ri[:6]):
                     with cols[i]: st.image(im,use_container_width=True)
             st.markdown("---")
-            tmps={"Custom":"","Movie Recap":"dramatic YouTube movie recap thumbnail, 1280x720, cinematic, emotional, bold text","Shocking":"YouTube thumbnail, shocked expression, red yellow, bold text, 1280x720"}
-sel=st.selectbox("Template",list(tmps.keys()))
-sizes={"16:9 (1280x720)":"1280x720","9:16 (720x1280)":"720x1280","1:1 (1024x1024)":"1024x1024","4:3 (1024x768)":"1024x768","3:4 (768x1024)":"768x1024"}
-sz=st.selectbox("Size",list(sizes.keys()))
-pr=st.text_area("Prompt",value=tmps[sel],height=100)
+            tmps={
+                "Custom (စိတ်ကြိုက်)":"",
+                "Movie Recap (ရုပ်ရှင်အကျဉ်းချုပ်)":"dramatic YouTube movie recap thumbnail, cinematic lighting, emotional scene, bold title text, film grain effect, dark moody atmosphere",
+                "Shocking (အံ့ဩစရာ)":"YouTube thumbnail, shocked surprised expression, bright red yellow background, bold dramatic text, eye-catching, viral style",
+                "Horror (ထိတ်လန့်)":"horror movie thumbnail, dark scary atmosphere, creepy shadows, fear expression, blood red accents, haunted feeling",
+                "Comedy (ဟာသ)":"funny comedy thumbnail, bright colorful, laughing expression, playful text, cheerful mood, cartoon style elements",
+                "Romance (အချစ်)":"romantic movie thumbnail, soft pink lighting, couple silhouette, heart elements, dreamy bokeh background, emotional",
+                "Action (အက်ရှင်)":"action movie thumbnail, explosive background, fire sparks, intense expression, dynamic pose, bold red orange colors",
+                "Drama (ဒရာမာ)":"emotional drama thumbnail, tears sad expression, rain effect, blue moody lighting, touching moment, cinematic",
+                "Thriller (သည်းထိတ်)":"thriller suspense thumbnail, mysterious dark, half face shadow, intense eyes, danger feeling, noir style",
+                "Fantasy (စိတ်ကူးယဉ်)":"fantasy magical thumbnail, glowing effects, mystical atmosphere, enchanted, purple blue colors, epic scene",
+                "Documentary (မှတ်တမ်း)":"documentary style thumbnail, realistic, informative look, clean professional, news style, factual feeling"
+            }
+            sel=st.selectbox("Template",list(tmps.keys()))
+            sizes={"16:9 (1280x720)":"1280x720","9:16 (720x1280)":"720x1280","1:1 (1024x1024)":"1024x1024","4:3 (1024x768)":"1024x768","3:4 (768x1024)":"768x1024"}
+            sz=st.selectbox("Size",list(sizes.keys()))
+            pr=st.text_area("Prompt",value=tmps[sel],height=100)
             c1,c2=st.columns(2)
             with c1: atxt=st.text_input("Text",placeholder="EP.1")
             with c2: num=st.selectbox("Count",[1,2,3,4])
@@ -665,8 +673,8 @@ pr=st.text_area("Prompt",value=tmps[sel],height=100)
                 elif not pr.strip(): st.warning("Enter prompt!")
                 else:
                     st.session_state['generated_images']=[]
-szv=sizes[sz]
-fp=pr.strip()+(f", text:'{atxt}'" if atxt else "")+f", {szv}, high quality"
+                    szv=sizes[sz]
+                    fp=pr.strip()+(f", text:'{atxt}'" if atxt else "")+f", {szv}, high quality"
                     with st.spinner("Generating..."):
                         try:
                             im=genai.GenerativeModel("models/gemini-3-pro-image-preview")
