@@ -557,6 +557,7 @@ else:
             else:
                 tf=None
                 video_url=st.text_input("Video URL",placeholder="YouTube, Facebook, TikTok, Google Drive link",key="video_url")
+            tsf=st.file_uploader("Style (Optional)",type=["txt","pdf","docx"],key="tsf")    
             use_trans_examples=st.checkbox("📚 Use Built-in Training Data",value=False,key="use_trans_examples")
             tst=""
             if tsf:
