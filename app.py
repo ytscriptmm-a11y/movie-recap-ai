@@ -573,7 +573,7 @@ else:
                     tgt=lngs[tl]
                     mdl=genai.GenerativeModel(tm)
                     trans_examples=get_recap_examples() if use_trans_examples else ""
-trans_ex_text=f"\n\nWriting Style Examples:\n{trans_examples}" if trans_examples else ""
+                    trans_ex_text=f"\n\nWriting Style Examples:\n{trans_examples}" if trans_examples else ""
                     
                     # Video URL handling
                     if video_url and not tf:
