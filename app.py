@@ -512,7 +512,7 @@ else:
         with st.container(border=True):
             c1,c2=st.columns([3,1])
             with c2:
-                tm=st.selectbox("Model",["models/gemini-2.5-flash","models/gemini-2.5-pro","gemini-2.0-flash-exp","gemini-1.5-flash"],key="tm")
+                tm=st.selectbox("Model",["models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-pro-preview","models/gemini-3-flash-preview","gemini-2.0-flash-exp","gemini-1.5-flash"],key="tm")
             with c1:
                 lngs={"Burmese":"Burmese","English":"English","Thai":"Thai","Chinese":"Chinese","Japanese":"Japanese","Korean":"Korean"}
                 tl=st.selectbox("Target",list(lngs.keys()))
@@ -610,7 +610,7 @@ else:
                             if gf:
                                 status.info("Transcribing & Translating...")
                                 progress.progress(60)
-                                r,err=call_api(mdl,[gf,f"Transcribe and translate to {tgt}.{sty}"],900)
+                                r,err=call_api(mdl,[gf,f"Listen to this video/audio carefully. Transcribe all spoken words and translate them to {tgt}. Return ONLY the translated text in {tgt} language. Do not include original language.{sty}"],900)
                                 progress.progress(90)
                                 if r:
                                     res,_=get_text(r)
@@ -653,8 +653,10 @@ else:
                     with cols[i]: st.image(im,use_container_width=True)
             st.markdown("---")
             tmps={"Custom":"","Movie Recap":"dramatic YouTube movie recap thumbnail, 1280x720, cinematic, emotional, bold text","Shocking":"YouTube thumbnail, shocked expression, red yellow, bold text, 1280x720"}
-            sel=st.selectbox("Template",list(tmps.keys()))
-            pr=st.text_area("Prompt",value=tmps[sel],height=100)
+sel=st.selectbox("Template",list(tmps.keys()))
+sizes={"16:9 (1280x720)":"1280x720","9:16 (720x1280)":"720x1280","1:1 (1024x1024)":"1024x1024","4:3 (1024x768)":"1024x768","3:4 (768x1024)":"768x1024"}
+sz=st.selectbox("Size",list(sizes.keys()))
+pr=st.text_area("Prompt",value=tmps[sel],height=100)
             c1,c2=st.columns(2)
             with c1: atxt=st.text_input("Text",placeholder="EP.1")
             with c2: num=st.selectbox("Count",[1,2,3,4])
@@ -663,7 +665,8 @@ else:
                 elif not pr.strip(): st.warning("Enter prompt!")
                 else:
                     st.session_state['generated_images']=[]
-                    fp=pr.strip()+(f", text:'{atxt}'" if atxt else "")+", high quality"
+szv=sizes[sz]
+fp=pr.strip()+(f", text:'{atxt}'" if atxt else "")+f", {szv}, high quality"
                     with st.spinner("Generating..."):
                         try:
                             im=genai.GenerativeModel("models/gemini-3-pro-image-preview")
@@ -691,7 +694,7 @@ else:
     with t4:
         st.header("Rewriter")
         with st.container(border=True):
-            rm=st.selectbox("Model",["gemini-1.5-flash","gemini-2.0-flash-exp","models/gemini-2.5-flash","models/gemini-3-pro-preview"],key="rm")
+            rm=st.selectbox("Model",["gemini-1.5-flash","gemini-2.0-flash-exp","models/gemini-2.5-flash","models/gemini-2.5-pro","models/gemini-3-flash-preview","models/gemini-3-pro-preview"],key="rm")
             rsf=st.file_uploader("Style",type=["txt","pdf","docx"],key="rsf")
             orig=st.text_area("Original",height=250)
             if st.button("Rewrite",use_container_width=True):
