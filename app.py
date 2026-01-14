@@ -560,8 +560,8 @@ else:
                 elif not tf and not video_url:
                     st.warning("Upload a file or enter URL!")
                     else:
-                    # Video URL handling
-                    if video_url and not tf:
+                        # Video URL handling
+                        if video_url and not tf:
                         tgt=lngs[tl]
                         mdl=genai.GenerativeModel(tm)
                         sty=f"\n\nStyle reference:\n{tst}" if tst else ""
