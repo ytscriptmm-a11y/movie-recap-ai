@@ -541,19 +541,14 @@ else:
                 lngs={"Burmese":"Burmese","English":"English","Thai":"Thai","Chinese":"Chinese","Japanese":"Japanese","Korean":"Korean"}
                 tl=st.selectbox("Target",list(lngs.keys()))
             input_type=st.radio("Input Type",["File Upload","Video URL"],horizontal=True,key="input_type")
-if input_type=="File Upload":
-    tf=st.file_uploader("File",type=["mp3","mp4","txt","srt","docx"],key="tf")
-    video_url=None
-else:
-    tf=None
-    video_url=st.text_input("Video URL",placeholder="YouTube, Facebook, TikTok, Google Drive link",key="video_url")
-
-
-
-
-
-    tsf=st.file_uploader("Style (Optional)",type=["txt","pdf","docx"],key="tsf")
-    tst=""
+            if input_type=="File Upload":
+                tf=st.file_uploader("File",type=["mp3","mp4","txt","srt","docx"],key="tf")
+                video_url=None
+            else:
+                tf=None
+                video_url=st.text_input("Video URL",placeholder="YouTube, Facebook, TikTok, Google Drive link",key="video_url")
+            tsf=st.file_uploader("Style (Optional)",type=["txt","pdf","docx"],key="tsf")
+            tst=""
             if tsf:
                 c=read_file(tsf)
                 if c:
