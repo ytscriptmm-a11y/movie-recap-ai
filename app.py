@@ -557,7 +557,7 @@ else:
             else:
                 tf=None
                 video_url=st.text_input("Video URL",placeholder="YouTube, Facebook, TikTok, Google Drive link",key="video_url")
-            tsf=st.file_uploader("Style (Optional)",type=["txt","pdf","docx"],key="tsf")
+            use_trans_examples=st.checkbox("📚 Use Built-in Training Data",value=False,key="use_trans_examples")
             tst=""
             if tsf:
                 c=read_file(tsf)
@@ -572,7 +572,8 @@ else:
                 else:
                     tgt=lngs[tl]
                     mdl=genai.GenerativeModel(tm)
-                    sty=f"\n\nStyle reference:\n{tst}" if tst else ""
+                    trans_examples=get_recap_examples() if use_trans_examples else ""
+trans_ex_text=f"\n\nWriting Style Examples:\n{trans_examples}" if trans_examples else ""
                     
                     # Video URL handling
                     if video_url and not tf:
@@ -588,7 +589,7 @@ else:
                             if gf:
                                 status.info("Transcribing & Translating...")
                                 progress.progress(50)
-                                r,err=call_api(mdl,[gf,f"Listen to this video/audio carefully. Transcribe all spoken words and translate them to {tgt}. Return ONLY the translated text in {tgt} language. Do not include original language.{sty}"],900)
+                                r,err=call_api(mdl,[gf,f"Listen to this video/audio carefully. Transcribe all spoken words and translate them to {tgt}. Return ONLY the translated text in {tgt} language. Do not include original language.{sty}{trans_ex_text}"],900)
                                 progress.progress(90)
                                 if r:
                                     res,_=get_text(r)
@@ -632,7 +633,7 @@ else:
                             status=st.empty()
                             status.info("Translating... (may take 2-5 min)")
                             progress.progress(30)
-                            r,err=call_api(mdl,f"Translate to {tgt}. Return ONLY translated text.{sty}\n\n{txt}",900)
+                            r,err=call_api(mdl,f"Translate to {tgt}. Return ONLY translated text.{sty}{trans_ex_text}\n\n{txt}",900)
                             progress.progress(90)
                             if r:
                                 res,_=get_text(r)
@@ -663,7 +664,7 @@ else:
                                 status=st.empty()
                                 status.info("Translating...")
                                 progress.progress(30)
-                                r,err=call_api(mdl,f"Translate to {tgt}. Return ONLY translated text.{sty}\n\n{txt}",900)
+                                r,err=call_api(mdl,f"Translate to {tgt}. Return ONLY translated text.{sty}{trans_ex_text}\n\n{txt}",900)
                                 progress.progress(90)
                                 if r:
                                     res,_=get_text(r)
@@ -700,7 +701,7 @@ else:
                                 if gf:
                                     status.info("Transcribing & Translating...")
                                     progress.progress(60)
-                                    r,err=call_api(mdl,[gf,f"Listen to this video/audio carefully. Transcribe all spoken words and translate them to {tgt}. Return ONLY the translated text in {tgt} language. Do not include original language.{sty}"],900)
+                                    r,err=call_api(mdl,[gf,f"Listen to this video/audio carefully. Transcribe all spoken words and translate them to {tgt}. Return ONLY the translated text in {tgt} language. Do not include original language.{sty}{trans_ex_text}"],900)
                                     progress.progress(90)
                                     if r:
                                         res,_=get_text(r)
