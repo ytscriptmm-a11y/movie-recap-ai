@@ -551,9 +551,7 @@ else:
 
 ---
 
-### 4️⃣ requirements.txt မှာ ထည့်ပါ
-```
-yt-dlp
+
             tsf=st.file_uploader("Style (Optional)",type=["txt","pdf","docx"],key="tsf")
             tst=""
             if tsf:
