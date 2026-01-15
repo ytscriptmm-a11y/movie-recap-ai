@@ -812,12 +812,12 @@ if st.button("Generate",use_container_width=True):
                                 time.sleep(2)
                             if st.session_state['generated_images']: st.success(f"Generated {len(st.session_state['generated_images'])}")
                         except Exception as e: st.error(str(e))
-        if st.session_state.get('generated_images'):
-            st.markdown("### Results")
-            if st.button("Clear",key="ct"): st.session_state['generated_images']=[];st.rerun()
-            for i,im in enumerate(st.session_state['generated_images']):
-                with st.container(border=True):
-                    st.image(im['data'],use_container_width=True)
+                    if st.session_state.get('generated_images'):
+                        st.markdown("### Results")
+                        if st.button("Clear",key="ct"): st.session_state['generated_images']=[];st.rerun()
+                        for i,im in enumerate(st.session_state['generated_images']):
+                            with st.container(border=True):
+                                st.image(im['data'],use_container_width=True)
                     st.download_button(f"Download #{im['idx']}",im['data'],f"thumb_{i+1}.png",key=f"dt_{i}_{time.time()}",use_container_width=True)
 
     with t4:
