@@ -789,7 +789,7 @@ with c2:
     }
     txt_style=st.selectbox("Text Style",list(text_styles.keys()))
 with c3: num=st.selectbox("Count",[1,2,3,4])
-            if st.button("Generate",use_container_width=True):
+if st.button("Generate",use_container_width=True):
                 if not api_key: st.error("Enter API Key!")
                 elif not pr.strip(): st.warning("Enter prompt!")
                 else:
