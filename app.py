@@ -768,8 +768,27 @@ else:
             sz=st.selectbox("Size",list(sizes.keys()))
             pr=st.text_area("Prompt",value=tmps[sel],height=100)
             c1,c2=st.columns(2)
-            with c1: atxt=st.text_input("Text",placeholder="EP.1")
-            with c2: num=st.selectbox("Count",[1,2,3,4])
+            c1,c2,c3=st.columns([2,2,1])
+with c1: atxt=st.text_input("Text",placeholder="EP.1")
+with c2:
+    text_styles={
+        "Default (မူလ)":"bold text",
+        "Shocking (အံ့ဩ)":"bold dramatic red yellow gradient text, impact font",
+        "Horror (ထိတ်လန့်)":"creepy horror text, blood dripping, scary font",
+        "Comedy (ဟာသ)":"fun colorful cartoon text, playful bubble font",
+        "Romance (အချစ်)":"elegant romantic pink text, script font, heart accents",
+        "Action (အက်ရှင်)":"bold explosive metallic text, fire effect, impact font",
+        "Drama (ဒရာမာ)":"emotional elegant text, serif font, subtle glow",
+        "Thriller (သည်းထိတ်)":"mysterious dark text, noir style, shadow effect",
+        "Fantasy (စိတ်ကူးယဉ်)":"magical glowing text, enchanted fantasy font",
+        "Documentary (မှတ်တမ်း)":"clean professional text, sans-serif, news style",
+        "Gold 3D":"gold 3D metallic text, shiny, luxurious",
+        "White 3D Blue Outline":"white 3D text with dark blue outline, bold",
+        "Yellow 3D Black Outline":"yellow 3D text with black outline, bold impact",
+        "Red 3D Yellow Outline":"red 3D text with yellow outline, bold dramatic"
+    }
+    txt_style=st.selectbox("Text Style",list(text_styles.keys()))
+with c3: num=st.selectbox("Count",[1,2,3,4])
             if st.button("Generate",use_container_width=True):
                 if not api_key: st.error("Enter API Key!")
                 elif not pr.strip(): st.warning("Enter prompt!")
@@ -785,7 +804,7 @@ else:
                                 ct=[f"Generate image: {fp}"]
                                 if ri:
                                     for r in ri[:10]: r.seek(0);ct.append(Image.open(r))
-                                rsp=im.generate_content(ct,request_options={"timeout":180})
+                                rsp=im.generate_content(ct,request_options={"timeout":300})
                                 if rsp.candidates:
                                     for p in rsp.candidates[0].content.parts:
                                         if hasattr(p,'inline_data') and p.inline_data:
