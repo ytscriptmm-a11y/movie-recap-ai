@@ -800,22 +800,42 @@ else:
                     szv=sizes[sz]
                     txt_style_prompt=text_styles[txt_style] if atxt else ""
                     fp=pr.strip()+(f", text:'{atxt}', {txt_style_prompt}" if atxt else "")+f", {szv}, high quality"
-                    with st.spinner("Generating..."):
+                    
+                    # Prepare reference images
+                    ref_images=[]
+                    if ri:
+                        for r in ri[:10]:
+                            r.seek(0)
+                            ref_images.append(Image.open(r))
+                    
+                    # Parallel generation function
+                    def generate_single(idx):
                         try:
-                            im=genai.GenerativeModel("models/gemini-3-pro-image-preview")
-                            for i in range(num):
-                                st.info(f"Generating {i+1}/{num}...")
-                                ct=[f"Generate image: {fp}"]
-                                if ri:
-                                    for r in ri[:10]: r.seek(0);ct.append(Image.open(r))
-                                rsp=im.generate_content(ct,request_options={"timeout":300})
-                                if rsp.candidates:
-                                    for p in rsp.candidates[0].content.parts:
-                                        if hasattr(p,'inline_data') and p.inline_data:
-                                            st.session_state['generated_images'].append({'data':p.inline_data.data,'mime':p.inline_data.mime_type,'idx':i+1});break
-                                time.sleep(2)
+                            mdl=genai.GenerativeModel("models/gemini-3-pro-image-preview")
+                            ct=[f"Generate image: {fp}"]+ref_images
+                            rsp=mdl.generate_content(ct,request_options={"timeout":300})
+                            if rsp.candidates:
+                                for p in rsp.candidates[0].content.parts:
+                                    if hasattr(p,'inline_data') and p.inline_data:
+                                        return {'data':p.inline_data.data,'mime':p.inline_data.mime_type,'idx':idx}
+                        except Exception as e:
+                            return {'error':str(e),'idx':idx}
+                        return None
+                    
+                    with st.spinner(f"Generating {num} images in parallel..."):
+                        try:
+                            from concurrent.futures import ThreadPoolExecutor
+                            with ThreadPoolExecutor(max_workers=num) as executor:
+                                results=list(executor.map(generate_single,range(1,num+1)))
+                            
+                            for r in results:
+                                if r and 'data' in r:
+                                    st.session_state['generated_images'].append(r)
+                                elif r and 'error' in r:
+                                    st.warning(f"Image {r['idx']} failed: {r['error']}")
+                            
                             if st.session_state['generated_images']:
-                                st.success(f"Generated {len(st.session_state['generated_images'])}")
+                                st.success(f"Generated {len(st.session_state['generated_images'])} images!")
                         except Exception as e:
                             st.error(str(e))
             if st.session_state.get('generated_images'):
