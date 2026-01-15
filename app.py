@@ -767,35 +767,39 @@ else:
             sizes={"16:9 (1280x720)":"1280x720","9:16 (720x1280)":"720x1280","1:1 (1024x1024)":"1024x1024","4:3 (1024x768)":"1024x768","3:4 (768x1024)":"768x1024"}
             sz=st.selectbox("Size",list(sizes.keys()))
             pr=st.text_area("Prompt",value=tmps[sel],height=100)
-            c1,c2=st.columns(2)
             c1,c2,c3=st.columns([2,2,1])
-with c1: atxt=st.text_input("Text",placeholder="EP.1")
-with c2:
-    text_styles={
-        "Default (မူလ)":"bold text",
-        "Shocking (အံ့ဩ)":"bold dramatic red yellow gradient text, impact font",
-        "Horror (ထိတ်လန့်)":"creepy horror text, blood dripping, scary font",
-        "Comedy (ဟာသ)":"fun colorful cartoon text, playful bubble font",
-        "Romance (အချစ်)":"elegant romantic pink text, script font, heart accents",
-        "Action (အက်ရှင်)":"bold explosive metallic text, fire effect, impact font",
-        "Drama (ဒရာမာ)":"emotional elegant text, serif font, subtle glow",
-        "Thriller (သည်းထိတ်)":"mysterious dark text, noir style, shadow effect",
-        "Fantasy (စိတ်ကူးယဉ်)":"magical glowing text, enchanted fantasy font",
-        "Documentary (မှတ်တမ်း)":"clean professional text, sans-serif, news style",
-        "Gold 3D":"gold 3D metallic text, shiny, luxurious",
-        "White 3D Blue Outline":"white 3D text with dark blue outline, bold",
-        "Yellow 3D Black Outline":"yellow 3D text with black outline, bold impact",
-        "Red 3D Yellow Outline":"red 3D text with yellow outline, bold dramatic"
-    }
-    txt_style=st.selectbox("Text Style",list(text_styles.keys()))
-with c3: num=st.selectbox("Count",[1,2,3,4])
-if st.button("Generate",use_container_width=True):
-                if not api_key: st.error("Enter API Key!")
-                elif not pr.strip(): st.warning("Enter prompt!")
+            with c1:
+                atxt=st.text_input("Text",placeholder="EP.1")
+            with c2:
+                text_styles={
+                    "Default (မူလ)":"bold text",
+                    "Shocking (အံ့ဩ)":"bold dramatic red yellow gradient text, impact font",
+                    "Horror (ထိတ်လန့်)":"creepy horror text, blood dripping, scary font",
+                    "Comedy (ဟာသ)":"fun colorful cartoon text, playful bubble font",
+                    "Romance (အချစ်)":"elegant romantic pink text, script font, heart accents",
+                    "Action (အက်ရှင်)":"bold explosive metallic text, fire effect, impact font",
+                    "Drama (ဒရာမာ)":"emotional elegant text, serif font, subtle glow",
+                    "Thriller (သည်းထိတ်)":"mysterious dark text, noir style, shadow effect",
+                    "Fantasy (စိတ်ကူးယဉ်)":"magical glowing text, enchanted fantasy font",
+                    "Documentary (မှတ်တမ်း)":"clean professional text, sans-serif, news style",
+                    "Gold 3D":"gold 3D metallic text, shiny, luxurious",
+                    "White 3D Blue Outline":"white 3D text with dark blue outline, bold",
+                    "Yellow 3D Black Outline":"yellow 3D text with black outline, bold impact",
+                    "Red 3D Yellow Outline":"red 3D text with yellow outline, bold dramatic"
+                }
+                txt_style=st.selectbox("Text Style",list(text_styles.keys()))
+            with c3:
+                num=st.selectbox("Count",[1,2,3,4])
+            if st.button("Generate",use_container_width=True):
+                if not api_key:
+                    st.error("Enter API Key!")
+                elif not pr.strip():
+                    st.warning("Enter prompt!")
                 else:
                     st.session_state['generated_images']=[]
                     szv=sizes[sz]
-                    fp=pr.strip()+(f", text:'{atxt}'" if atxt else "")+f", {szv}, high quality"
+                    txt_style_prompt=text_styles[txt_style] if atxt else ""
+                    fp=pr.strip()+(f", text:'{atxt}', {txt_style_prompt}" if atxt else "")+f", {szv}, high quality"
                     with st.spinner("Generating..."):
                         try:
                             im=genai.GenerativeModel("models/gemini-3-pro-image-preview")
@@ -810,15 +814,18 @@ if st.button("Generate",use_container_width=True):
                                         if hasattr(p,'inline_data') and p.inline_data:
                                             st.session_state['generated_images'].append({'data':p.inline_data.data,'mime':p.inline_data.mime_type,'idx':i+1});break
                                 time.sleep(2)
-                            if st.session_state['generated_images']: st.success(f"Generated {len(st.session_state['generated_images'])}")
-                        except Exception as e: st.error(str(e))
-                    if st.session_state.get('generated_images'):
-                        st.markdown("### Results")
-                        if st.button("Clear",key="ct"): st.session_state['generated_images']=[];st.rerun()
-                        for i,im in enumerate(st.session_state['generated_images']):
-                            with st.container(border=True):
-                                st.image(im['data'],use_container_width=True)
-                    st.download_button(f"Download #{im['idx']}",im['data'],f"thumb_{i+1}.png",key=f"dt_{i}_{time.time()}",use_container_width=True)
+                            if st.session_state['generated_images']:
+                                st.success(f"Generated {len(st.session_state['generated_images'])}")
+                        except Exception as e:
+                            st.error(str(e))
+            if st.session_state.get('generated_images'):
+                st.markdown("### Results")
+                if st.button("Clear",key="ct"):
+                    st.session_state['generated_images']=[];st.rerun()
+                for i,im in enumerate(st.session_state['generated_images']):
+                    with st.container(border=True):
+                        st.image(im['data'],use_container_width=True)
+                        st.download_button(f"Download #{im['idx']}",im['data'],f"thumb_{i+1}.png",key=f"dt_{i}_{time.time()}",use_container_width=True)
 
     with t4:
         st.header("Rewriter")
