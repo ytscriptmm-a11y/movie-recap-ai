@@ -331,7 +331,7 @@ def gem_v():
         "Sulafat (မ)":"Sulafat"
     }
     def get_voice_styles():
-    return {
+        return {
         "🎬 Standard Storytelling (အကောင်းဆုံး)":"Narrate in an engaging and expressive storytelling style, suitable for a movie recap. The tone should be clear, articulate, and captivating, with natural pauses to emphasize dramatic moments and plot twists. Maintain a steady pace that keeps the listener hooked.",
         "🔥 Dramatic & Suspenseful (သည်းထိတ်ရင်ဖို)":"A deep, dramatic, and suspenseful narration style. The voice should sound serious and intense, emphasizing the action and emotional beats of the story. Use a lower pitch and authoritative tone to build tension.",
         "😊 Casual & Friendly (ပေါ့ပေါ့ပါးပါး)":"Speak in a casual, friendly, and energetic manner, like a YouTuber summarizing a movie to a friend. The tone should be conversational, lively, and enthusiastic, with slightly faster pacing.",
