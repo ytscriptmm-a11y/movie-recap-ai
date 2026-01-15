@@ -331,17 +331,7 @@ def gem_v():
         "Sulafat (မ)":"Sulafat"
     }
     def get_voice_styles():
-        return {
-            "🎬 Standard Storytelling (အကောင်းဆုံး)":"Narrate in an engaging and expressive storytelling style, suitable for a movie recap. The tone should be clear, articulate, and captivating, with natural pauses to emphasize dramatic moments and plot twists.",
-            "🔥 Dramatic & Suspenseful (သည်းထိတ်ရင်ဖို)":"A deep, dramatic, and suspenseful narration style. The voice should sound serious and intense, emphasizing the action and emotional beats of the story.",
-            "😊 Casual & Friendly (ပေါ့ပေါ့ပါးပါး)":"Speak in a casual, friendly, and energetic manner, like a YouTuber summarizing a movie to a friend. The tone should be conversational, lively, and enthusiastic.",
-            "🎃 Horror & Creepy (သရဲဝတ္တု)":"Narrate in a chilling, eerie, and unsettling tone perfect for ghost stories and horror content. The voice should be slow, whispery at times, with long pauses to create suspense.",
-            "🎭 Emotional & Dialogue (ခံစားချက်ပြည့်)":"Deliver the narration with deep emotional expression, as if performing a dramatic reading. Change tone and emotion based on the content.",
-            "📺 News Anchor (သတင်းကြေငြာ)":"Speak in a professional, clear, and authoritative news anchor style. The tone should be neutral, formal, and informative.",
-            "🎓 Documentary (မှတ်တမ်းရုပ်ရှင်)":"Narrate in a calm, educational, and informative documentary style. The voice should be warm yet professional.",
-            "🎪 Custom (စိတ်ကြိုက်)":""
-        }
-
+    return {"🎬 Standard Storytelling (အကောင်းဆုံး)":"Narrate in an engaging and expressive storytelling style, suitable for a movie recap. The tone should be clear, articulate, and captivating, with natural pauses to emphasize dramatic moments and plot twists.","🔥 Dramatic & Suspenseful (သည်းထိတ်ရင်ဖို)":"A deep, dramatic, and suspenseful narration style. The voice should sound serious and intense, emphasizing the action and emotional beats of the story.","😊 Casual & Friendly (ပေါ့ပေါ့ပါးပါး)":"Speak in a casual, friendly, and energetic manner, like a YouTuber summarizing a movie to a friend. The tone should be conversational, lively, and enthusiastic.","🎃 Horror & Creepy (သရဲဝတ္တု)":"Narrate in a chilling, eerie, and unsettling tone perfect for ghost stories and horror content. The voice should be slow, whispery at times, with long pauses to create suspense.","🎭 Emotional & Dialogue (ခံစားချက်ပြည့်)":"Deliver the narration with deep emotional expression, as if performing a dramatic reading. Change tone and emotion based on the content.","📺 News Anchor (သတင်းကြေငြာ)":"Speak in a professional, clear, and authoritative news anchor style. The tone should be neutral, formal, and informative.","🎓 Documentary (မှတ်တမ်းရုပ်ရှင်)":"Narrate in a calm, educational, and informative documentary style. The voice should be warm yet professional.","🎪 Custom (စိတ်ကြိုက်)":""}
 def gen_gem_styled(key,txt,v,mdl,style_prompt=""):
     if not GENAI_NEW_AVAILABLE: return None,"google-genai not installed"
     try:
