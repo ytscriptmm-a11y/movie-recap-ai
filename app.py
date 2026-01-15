@@ -302,7 +302,63 @@ def delete_note(id):
         except: pass
 
 def edge_v(): return {"Myanmar-Thiha":"my-MM-ThihaNeural","Myanmar-Nilar":"my-MM-NilarNeural","English-Jenny":"en-US-JennyNeural","English-Guy":"en-US-GuyNeural","Thai":"th-TH-PremwadeeNeural","Chinese":"zh-CN-XiaoxiaoNeural","Japanese":"ja-JP-NanamiNeural","Korean":"ko-KR-SunHiNeural"}
-def gem_v(): return {"Zephyr":"Zephyr","Puck":"Puck","Charon":"Charon","Kore":"Kore","Fenrir":"Fenrir","Leda":"Leda","Orus":"Orus","Aoede":"Aoede"}
+def gem_v(): 
+    return {
+        "Puck (ကျား)":"Puck",
+        "Charon (ကျား)":"Charon",
+        "Kore (မ)":"Kore",
+        "Fenrir (ကျား)":"Fenrir",
+        "Aoede (မ)":"Aoede",
+        "Leda (မ)":"Leda",
+        "Orus (ကျား)":"Orus",
+        "Zephyr (ကျား)":"Zephyr",
+        "Helios (ကျား)":"Helios",
+        "Perseus (ကျား)":"Perseus",
+        "Callirrhoe (မ)":"Callirrhoe",
+        "Autonoe (မ)":"Autonoe",
+        "Enceladus (ကျား)":"Enceladus",
+        "Iapetus (ကျား)":"Iapetus",
+        "Umbriel (ကျား)":"Umbriel",
+        "Algieba (မ)":"Algieba",
+        "Despina (မ)":"Despina",
+        "Erinome (မ)":"Erinome",
+        "Gacrux (ကျား)":"Gacrux",
+        "Achird (ကျား)":"Achird",
+        "Zubenelgenubi (ကျား)":"Zubenelgenubi",
+        "Schedar (မ)":"Schedar",
+        "Sadachbia (ကျား)":"Sadachbia",
+        "Sadaltager (ကျား)":"Sadaltager",
+        "Sulafat (မ)":"Sulafat"
+    }
+    def get_voice_styles():
+    return {
+        "🎬 Standard Storytelling (အကောင်းဆုံး)":"Narrate in an engaging and expressive storytelling style, suitable for a movie recap. The tone should be clear, articulate, and captivating, with natural pauses to emphasize dramatic moments and plot twists. Maintain a steady pace that keeps the listener hooked.",
+        "🔥 Dramatic & Suspenseful (သည်းထိတ်ရင်ဖို)":"A deep, dramatic, and suspenseful narration style. The voice should sound serious and intense, emphasizing the action and emotional beats of the story. Use a lower pitch and authoritative tone to build tension.",
+        "😊 Casual & Friendly (ပေါ့ပေါ့ပါးပါး)":"Speak in a casual, friendly, and energetic manner, like a YouTuber summarizing a movie to a friend. The tone should be conversational, lively, and enthusiastic, with slightly faster pacing.",
+        "🎃 Horror & Creepy (သရဲဝတ္တု)":"Narrate in a chilling, eerie, and unsettling tone perfect for ghost stories and horror content. The voice should be slow, whispery at times, with long pauses to create suspense. Add a cold, haunting quality that sends shivers down the listener's spine.",
+        "🎭 Emotional & Dialogue (ခံစားချက်ပြည့်)":"Deliver the narration with deep emotional expression, as if performing a dramatic reading. Change tone and emotion based on the content. Voice different characters distinctly when dialogue appears.",
+        "📺 News Anchor (သတင်းကြေငြာ)":"Speak in a professional, clear, and authoritative news anchor style. The tone should be neutral, formal, and informative with perfect pronunciation and measured pacing.",
+        "🎓 Documentary (မှတ်တမ်းရုပ်ရှင်)":"Narrate in a calm, educational, and informative documentary style. The voice should be warm yet professional, with a measured pace that allows information to sink in.",
+        "🎪 Custom (စိတ်ကြိုက်)":""
+    }
+
+def gen_gem_styled(key,txt,v,mdl,style_prompt=""):
+    if not GENAI_NEW_AVAILABLE: return None,"google-genai not installed"
+    try:
+        cl=genai_new.Client(api_key=key)
+        full_text=f"[Voice Style: {style_prompt}]\n\n{txt}" if style_prompt else txt
+        cfg=types.GenerateContentConfig(temperature=1,response_modalities=["audio"],speech_config=types.SpeechConfig(voice_config=types.VoiceConfig(prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=v))))
+        aud=b"";mime="audio/L16;rate=24000"
+        for ch in cl.models.generate_content_stream(model=mdl,contents=[types.Content(role="user",parts=[types.Part.from_text(text=full_text)])],config=cfg):
+            if ch.candidates and ch.candidates[0].content and ch.candidates[0].content.parts:
+                p=ch.candidates[0].content.parts[0]
+                if hasattr(p,'inline_data') and p.inline_data and p.inline_data.data:
+                    aud+=p.inline_data.data;mime=p.inline_data.mime_type
+        if not aud: return None,"No audio"
+        out=tempfile.NamedTemporaryFile(delete=False,suffix=".wav").name
+        with open(out,"wb") as f: f.write(to_wav(aud,mime))
+        return out,None
+    except Exception as e: return None,str(e)
 
 def gen_edge(txt,v,r=0):
     if not EDGE_TTS_AVAILABLE: return None,"Not available"
@@ -995,18 +1051,29 @@ else:
             else:
                 if not GENAI_NEW_AVAILABLE: st.error("google-genai not installed")
                 else:
-                    st.info("Gemini TTS supports multiple languages")
+                    st.info("🎙️ Gemini TTS - Voice Styles Supported")
                     txt=st.text_area("Text",height=200,key="gt")
+                    
+                    # Voice Style Selection
+                    voice_styles=get_voice_styles()
+                    selected_style=st.selectbox("🎨 Voice Style",list(voice_styles.keys()),key="gvs")
+                    style_prompt=voice_styles[selected_style]
+                    
+                    # Custom style input
+                    if "Custom" in selected_style:
+                        style_prompt=st.text_area("Custom Style Prompt",height=80,key="custom_style",placeholder="Describe how you want the voice to sound...")
+                    
                     c1,c2=st.columns(2)
-                    with c1: vc=st.selectbox("Voice",list(gem_v().keys()),key="gv")
-                    with c2: mdl=st.selectbox("Model",["gemini-2.5-flash-preview-tts","gemini-2.5-pro-preview-tts"],key="gm")
+                    with c1: vc=st.selectbox("🔊 Voice",list(gem_v().keys()),key="gv")
+                    with c2: mdl=st.selectbox("🤖 Model",["gemini-2.5-flash-preview-tts","gemini-2.5-pro-preview-tts"],key="gm")
                     st.caption(f"Chars: {len(txt)}")
-                    if st.button("Generate",use_container_width=True,key="gg"):
+                    
+                    if st.button("🎙️ Generate",use_container_width=True,key="gg",type="primary"):
                         if not api_key: st.error("Enter API Key!")
                         elif not txt.strip(): st.warning("Enter text!")
                         else:
                             with st.spinner(f"Generating with {mdl}..."):
-                                p,e=gen_gem(api_key,txt,gem_v()[vc],mdl)
+                                p,e=gen_gem_styled(api_key,txt,gem_v()[vc],mdl,style_prompt)
                                 if p: st.session_state['tts_audio']=p;st.success("Done!")
                                 else: st.error(e)
         if st.session_state.get('tts_audio') and os.path.exists(st.session_state['tts_audio']):
