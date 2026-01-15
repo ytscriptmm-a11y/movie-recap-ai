@@ -581,6 +581,7 @@ else:
                     trans_examples=get_recap_examples() if st.session_state.get('use_trans_examples',False) else ""
                     trans_ex_text=f"\n\nWriting Style Examples:\n{trans_examples}" if trans_examples else ""
                     if video_url and not tf:
+                        sty=f"\n\nStyle reference:\n{tst}" if tst else ""
                         progress=st.progress(0)
                         status=st.empty()
                         status.info("Downloading video...")
