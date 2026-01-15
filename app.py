@@ -739,10 +739,12 @@ else:
                                     status.error("Upload failed")
                                 rm_file(pth)
 
+    # === TAB 3: THUMBNAIL ===
     with t3:
         st.header("AI Thumbnail")
         st.caption("Nanobanana Pro (gemini-3-pro-image-preview)")
         with st.container(border=True):
+            # Reference Images - အပေါ်ဆုံးမှာထား
             ri=st.file_uploader("Reference (Max 10)",type=["png","jpg","jpeg","webp"],accept_multiple_files=True,key="ri")
             if ri:
                 st.caption(f"{len(ri)} image(s)")
@@ -750,6 +752,8 @@ else:
                 for i,im in enumerate(ri[:6]):
                     with cols[i]: st.image(im,use_container_width=True)
             st.markdown("---")
+            
+            # Templates
             tmps={
                 "Custom (စိတ်ကြိုက်)":"",
                 "Movie Recap (ရုပ်ရှင်အကျဉ်းချုပ်)":"dramatic YouTube movie recap thumbnail, cinematic lighting, emotional scene, bold title text, film grain effect, dark moody atmosphere",
@@ -764,9 +768,15 @@ else:
                 "Documentary (မှတ်တမ်း)":"documentary style thumbnail, realistic, informative look, clean professional, news style, factual feeling"
             }
             sel=st.selectbox("Template",list(tmps.keys()))
+            
+            # Size options
             sizes={"16:9 (1280x720)":"1280x720","9:16 (720x1280)":"720x1280","1:1 (1024x1024)":"1024x1024","4:3 (1024x768)":"1024x768","3:4 (768x1024)":"768x1024"}
             sz=st.selectbox("Size",list(sizes.keys()))
+            
+            # Prompt
             pr=st.text_area("Prompt",value=tmps[sel],height=100)
+            
+            # Text, Style, Count
             c1,c2,c3=st.columns([2,2,1])
             with c1:
                 atxt=st.text_input("Text",placeholder="EP.1")
@@ -790,62 +800,134 @@ else:
                 txt_style=st.selectbox("Text Style",list(text_styles.keys()))
             with c3:
                 num=st.selectbox("Count",[1,2,3,4])
-            if st.button("Generate",use_container_width=True):
+            
+            # Generate Button
+            if st.button("Generate",use_container_width=True,type="primary"):
                 if not api_key:
                     st.error("Enter API Key!")
                 elif not pr.strip():
                     st.warning("Enter prompt!")
                 else:
+                    # Clear previous results
                     st.session_state['generated_images']=[]
+                    
+                    # Build final prompt
                     szv=sizes[sz]
                     txt_style_prompt=text_styles[txt_style] if atxt else ""
                     fp=pr.strip()+(f", text:'{atxt}', {txt_style_prompt}" if atxt else "")+f", {szv}, high quality"
                     
-                    # Prepare reference images
-                    ref_images=[]
+                    # Load reference images into memory BEFORE threading
+                    ref_pil_images=[]
                     if ri:
                         for r in ri[:10]:
-                            r.seek(0)
-                            ref_images.append(Image.open(r))
+                            try:
+                                r.seek(0)
+                                img_bytes = r.read()
+                                ref_pil_images.append(Image.open(io.BytesIO(img_bytes)))
+                            except Exception as e:
+                                st.warning(f"Reference image load failed: {e}")
                     
-                    # Parallel generation function
-                    def generate_single(idx):
+                    # Sequential generation function (safer than parallel for Gemini)
+                    def generate_single(idx, prompt, ref_imgs):
                         try:
                             mdl=genai.GenerativeModel("models/gemini-3-pro-image-preview")
-                            ct=[f"Generate image: {fp}"]+ref_images
-                            rsp=mdl.generate_content(ct,request_options={"timeout":300})
+                            
+                            # Build content
+                            content_parts = [f"Generate image: {prompt}"]
+                            if ref_imgs:
+                                content_parts.extend(ref_imgs)
+                            
+                            # Generate
+                            rsp=mdl.generate_content(
+                                content_parts,
+                                request_options={"timeout":300}
+                            )
+                            
+                            # Extract image
                             if rsp.candidates:
                                 for p in rsp.candidates[0].content.parts:
                                     if hasattr(p,'inline_data') and p.inline_data:
-                                        return {'data':p.inline_data.data,'mime':p.inline_data.mime_type,'idx':idx}
+                                        img_data = p.inline_data.data
+                                        mime = p.inline_data.mime_type
+                                        
+                                        # Validate image data
+                                        if img_data and len(img_data) > 1000:  # At least 1KB
+                                            return {'data': img_data, 'mime': mime, 'idx': idx, 'success': True}
+                                        else:
+                                            return {'error': 'Image data too small or empty', 'idx': idx, 'success': False}
+                            
+                            return {'error': 'No image in response', 'idx': idx, 'success': False}
+                            
                         except Exception as e:
-                            return {'error':str(e),'idx':idx}
-                        return None
+                            return {'error': str(e), 'idx': idx, 'success': False}
                     
-                    with st.spinner(f"Generating {num} images in parallel..."):
-                        try:
-                            from concurrent.futures import ThreadPoolExecutor
-                            with ThreadPoolExecutor(max_workers=num) as executor:
-                                results=list(executor.map(generate_single,range(1,num+1)))
+                    # Progress container
+                    progress_placeholder = st.empty()
+                    results_container = st.container()
+                    
+                    generated_count = 0
+                    failed_count = 0
+                    
+                    with progress_placeholder.container():
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        # Generate images one by one (more reliable than parallel)
+                        for i in range(1, num + 1):
+                            status_text.info(f"🎨 Generating image {i}/{num}...")
                             
-                            for r in results:
-                                if r and 'data' in r:
-                                    st.session_state['generated_images'].append(r)
-                                elif r and 'error' in r:
-                                    st.warning(f"Image {r['idx']} failed: {r['error']}")
+                            result = generate_single(i, fp, ref_pil_images)
                             
-                            if st.session_state['generated_images']:
-                                st.success(f"Generated {len(st.session_state['generated_images'])} images!")
-                        except Exception as e:
-                            st.error(str(e))
+                            if result and result.get('success'):
+                                st.session_state['generated_images'].append(result)
+                                generated_count += 1
+                                status_text.success(f"✅ Image {i} generated!")
+                            else:
+                                failed_count += 1
+                                error_msg = result.get('error', 'Unknown error') if result else 'No response'
+                                status_text.warning(f"⚠️ Image {i} failed: {error_msg}")
+                            
+                            # Update progress
+                            progress_bar.progress(i / num)
+                            
+                            # Small delay between requests
+                            if i < num:
+                                time.sleep(1)
+                        
+                        # Final status
+                        if generated_count > 0:
+                            status_text.success(f"✅ Done! Generated {generated_count}/{num} images")
+                        else:
+                            status_text.error(f"❌ All {num} images failed to generate")
+            
+            # Display Results
             if st.session_state.get('generated_images'):
-                st.markdown("### Results")
-                if st.button("Clear",key="ct"):
-                    st.session_state['generated_images']=[];st.rerun()
-                for i,im in enumerate(st.session_state['generated_images']):
+                st.markdown("---")
+                st.markdown("### 🖼️ Results")
+                
+                col_clear, _ = st.columns([1, 3])
+                with col_clear:
+                    if st.button("🗑️ Clear All", key="ct"):
+                        st.session_state['generated_images'] = []
+                        st.rerun()
+                
+                # Display images
+                for i, im in enumerate(st.session_state['generated_images']):
                     with st.container(border=True):
-                        st.image(im['data'],use_container_width=True)
-                        st.download_button(f"Download #{im['idx']}",im['data'],f"thumb_{i+1}.png",key=f"dt_{i}_{time.time()}",use_container_width=True)
+                        try:
+                            st.image(im['data'], use_container_width=True)
+                            
+                            # Download button
+                            st.download_button(
+                                f"⬇️ Download #{im['idx']}",
+                                im['data'],
+                                f"thumbnail_{im['idx']}.png",
+                                mime=im.get('mime', 'image/png'),
+                                key=f"dl_{i}_{int(time.time()*1000)}",
+                                use_container_width=True
+                            )
+                        except Exception as e:
+                            st.error(f"Error displaying image {im['idx']}: {e}")
 
     with t4:
         st.header("Rewriter")
