@@ -302,35 +302,12 @@ def delete_note(id):
         except: pass
 
 def edge_v(): return {"Myanmar-Thiha":"my-MM-ThihaNeural","Myanmar-Nilar":"my-MM-NilarNeural","English-Jenny":"en-US-JennyNeural","English-Guy":"en-US-GuyNeural","Thai":"th-TH-PremwadeeNeural","Chinese":"zh-CN-XiaoxiaoNeural","Japanese":"ja-JP-NanamiNeural","Korean":"ko-KR-SunHiNeural"}
-def gem_v(): 
-    return {
-        "Puck (ကျား)":"Puck",
-        "Charon (ကျား)":"Charon",
-        "Kore (မ)":"Kore",
-        "Fenrir (ကျား)":"Fenrir",
-        "Aoede (မ)":"Aoede",
-        "Leda (မ)":"Leda",
-        "Orus (ကျား)":"Orus",
-        "Zephyr (ကျား)":"Zephyr",
-        "Helios (ကျား)":"Helios",
-        "Perseus (ကျား)":"Perseus",
-        "Callirrhoe (မ)":"Callirrhoe",
-        "Autonoe (မ)":"Autonoe",
-        "Enceladus (ကျား)":"Enceladus",
-        "Iapetus (ကျား)":"Iapetus",
-        "Umbriel (ကျား)":"Umbriel",
-        "Algieba (မ)":"Algieba",
-        "Despina (မ)":"Despina",
-        "Erinome (မ)":"Erinome",
-        "Gacrux (ကျား)":"Gacrux",
-        "Achird (ကျား)":"Achird",
-        "Zubenelgenubi (ကျား)":"Zubenelgenubi",
-        "Schedar (မ)":"Schedar",
-        "Sadachbia (ကျား)":"Sadachbia",
-        "Sadaltager (ကျား)":"Sadaltager",
-        "Sulafat (မ)":"Sulafat"
-    }
-    def get_voice_styles(): return {"🎬 Standard Storytelling (အကောင်းဆုံး)":"Narrate in an engaging and expressive storytelling style, suitable for a movie recap.","🔥 Dramatic & Suspenseful (သည်းထိတ်ရင်ဖို)":"A deep, dramatic, and suspenseful narration style. The voice should sound serious and intense.","😊 Casual & Friendly (ပေါ့ပေါ့ပါးပါး)":"Speak in a casual, friendly, and energetic manner, like a YouTuber summarizing a movie to a friend.","🎃 Horror & Creepy (သရဲဝတ္တု)":"Narrate in a chilling, eerie, and unsettling tone perfect for ghost stories and horror content.","🎭 Emotional & Dialogue (ခံစားချက်ပြည့်)":"Deliver the narration with deep emotional expression, as if performing a dramatic reading.","📺 News Anchor (သတင်းကြေငြာ)":"Speak in a professional, clear, and authoritative news anchor style.","🎓 Documentary (မှတ်တမ်းရုပ်ရှင်)":"Narrate in a calm, educational, and informative documentary style.","🎪 Custom (စိတ်ကြိုက်)":""}
+
+def gem_v(): return {"Puck (ကျား)":"Puck","Charon (ကျား)":"Charon","Kore (မ)":"Kore","Fenrir (ကျား)":"Fenrir","Aoede (မ)":"Aoede","Leda (မ)":"Leda","Orus (ကျား)":"Orus","Zephyr (ကျား)":"Zephyr","Helios (ကျား)":"Helios","Perseus (ကျား)":"Perseus","Callirrhoe (မ)":"Callirrhoe","Autonoe (မ)":"Autonoe","Enceladus (ကျား)":"Enceladus","Iapetus (ကျား)":"Iapetus","Umbriel (ကျား)":"Umbriel","Algieba (မ)":"Algieba","Despina (မ)":"Despina","Erinome (မ)":"Erinome","Gacrux (ကျား)":"Gacrux","Achird (ကျား)":"Achird","Zubenelgenubi (ကျား)":"Zubenelgenubi","Schedar (မ)":"Schedar","Sadachbia (ကျား)":"Sadachbia","Sadaltager (ကျား)":"Sadaltager","Sulafat (မ)":"Sulafat"}
+
+def get_voice_styles(): return {"🎬 Standard Storytelling (အကောင်းဆုံး)":"Narrate in an engaging and expressive storytelling style, suitable for a movie recap.","🔥 Dramatic & Suspenseful (သည်းထိတ်ရင်ဖို)":"A deep, dramatic, and suspenseful narration style. The voice should sound serious and intense.","😊 Casual & Friendly (ပေါ့ပေါ့ပါးပါး)":"Speak in a casual, friendly, and energetic manner, like a YouTuber summarizing a movie to a friend.","🎃 Horror & Creepy (သရဲဝတ္တု)":"Narrate in a chilling, eerie, and unsettling tone perfect for ghost stories and horror content.","🎭 Emotional & Dialogue (ခံစားချက်ပြည့်)":"Deliver the narration with deep emotional expression, as if performing a dramatic reading.","📺 News Anchor (သတင်းကြေငြာ)":"Speak in a professional, clear, and authoritative news anchor style.","🎓 Documentary (မှတ်တမ်းရုပ်ရှင်)":"Narrate in a calm, educational, and informative documentary style.","🎪 Custom (စိတ်ကြိုက်)":""}
+
+def gen_gem_styled(key,txt,v,mdl,style_prompt=""):
     if not GENAI_NEW_AVAILABLE: return None,"google-genai not installed"
     try:
         cl=genai_new.Client(api_key=key)
