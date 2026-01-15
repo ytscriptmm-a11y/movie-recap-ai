@@ -307,11 +307,14 @@ def gem_v(): return {"Puck (ကျား)":"Puck","Charon (ကျား)":"Charo
 
 def get_voice_styles(): return {"🎬 Standard Storytelling (အကောင်းဆုံး)":"Narrate in an engaging and expressive storytelling style, suitable for a movie recap.","🔥 Dramatic & Suspenseful (သည်းထိတ်ရင်ဖို)":"A deep, dramatic, and suspenseful narration style. The voice should sound serious and intense.","😊 Casual & Friendly (ပေါ့ပေါ့ပါးပါး)":"Speak in a casual, friendly, and energetic manner, like a YouTuber summarizing a movie to a friend.","🎃 Horror & Creepy (သရဲဝတ္တု)":"Narrate in a chilling, eerie, and unsettling tone perfect for ghost stories and horror content.","🎭 Emotional & Dialogue (ခံစားချက်ပြည့်)":"Deliver the narration with deep emotional expression, as if performing a dramatic reading.","📺 News Anchor (သတင်းကြေငြာ)":"Speak in a professional, clear, and authoritative news anchor style.","🎓 Documentary (မှတ်တမ်းရုပ်ရှင်)":"Narrate in a calm, educational, and informative documentary style.","🎪 Custom (စိတ်ကြိုက်)":""}
 
-def gen_gem_styled(key,txt,v,mdl,style_prompt=""):
+def gen_gem_styled(key,txt,v,mdl,style_prompt="",speed=1.0):
     if not GENAI_NEW_AVAILABLE: return None,"google-genai not installed"
     try:
         cl=genai_new.Client(api_key=key)
-        full_text=f"[Voice Style: {style_prompt}]\n\n{txt}" if style_prompt else txt
+        speed_instruction=""
+        if speed<1.0: speed_instruction=f" Speak slowly at {speed}x speed."
+        elif speed>1.0: speed_instruction=f" Speak faster at {speed}x speed."
+        full_text=f"[Voice Style: {style_prompt}{speed_instruction}]\n\n{txt}" if style_prompt or speed_instruction else txt
         cfg=types.GenerateContentConfig(temperature=1,response_modalities=["audio"],speech_config=types.SpeechConfig(voice_config=types.VoiceConfig(prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=v))))
         aud=b"";mime="audio/L16;rate=24000"
         for ch in cl.models.generate_content_stream(model=mdl,contents=[types.Content(role="user",parts=[types.Part.from_text(text=full_text)])],config=cfg):
@@ -1028,9 +1031,10 @@ else:
                     if "Custom" in selected_style:
                         style_prompt=st.text_area("Custom Style Prompt",height=80,key="custom_style",placeholder="Describe how you want the voice to sound...")
                     
-                    c1,c2=st.columns(2)
+                    c1,c2,c3=st.columns(3)
                     with c1: vc=st.selectbox("🔊 Voice",list(gem_v().keys()),key="gv")
                     with c2: mdl=st.selectbox("🤖 Model",["gemini-2.5-flash-preview-tts","gemini-2.5-pro-preview-tts"],key="gm")
+                    with c3: spd=st.slider("⚡ Speed",0.5,2.0,1.0,0.1,key="gspd")
                     st.caption(f"Chars: {len(txt)}")
                     
                     if st.button("🎙️ Generate",use_container_width=True,key="gg",type="primary"):
@@ -1038,7 +1042,7 @@ else:
                         elif not txt.strip(): st.warning("Enter text!")
                         else:
                             with st.spinner(f"Generating with {mdl}..."):
-                                p,e=gen_gem_styled(api_key,txt,gem_v()[vc],mdl,style_prompt)
+                                p,e=gen_gem_styled(api_key,txt,gem_v()[vc],mdl,style_prompt,spd)
                                 if p: st.session_state['tts_audio']=p;st.success("Done!")
                                 else: st.error(e)
         if st.session_state.get('tts_audio') and os.path.exists(st.session_state['tts_audio']):
