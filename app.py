@@ -596,7 +596,7 @@ else:
                                 trans_ex_text=f"\n\nWriting Style Examples:\n{trans_examples}" if trans_examples else ""
                                 status.info("Transcribing & Translating...")
                                 progress.progress(50)
-                                r,err=call_api(mdl,[gf,f"Listen to this video/audio carefully. Transcribe all spoken words and translate them to {tgt}. Return ONLY the translated text in {tgt} language. Do not include original language.{sty}{trans_ex_text}"],900)
+                                r,err=call_api(mdl,[gf,f"Listen to this video/audio carefully. Transcribe all spoken words and translate them to {tgt}. Return ONLY the translated text in {tgt} language. Do not include original language.{sty}\n\nUse the writing style from these examples (natural storytelling tone, emotional, engaging):\n{trans_ex_text}"],900)
                                 progress.progress(90)
                                 if r:
                                     res,_=get_text(r)
