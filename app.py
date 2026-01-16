@@ -1034,7 +1034,7 @@ else:
                     c1,c2,c3=st.columns(3)
                     with c1: vc=st.selectbox("🔊 Voice",list(gem_v().keys()),key="gv")
                     with c2: mdl=st.selectbox("🤖 Model",["gemini-2.5-flash-preview-tts","gemini-2.5-pro-preview-tts"],key="gm")
-                    with c3: spd=st.slider("⚡ Speed",0.5,2.0,1.0,0.1,key="gspd")
+                    with c3: swith c3: spd=st.slider("⚡ Speed",0.50,2.00,1.00,0.02,key="gspd")pd=st.slider("⚡ Speed",0.5,2.0,1.0,0.1,key="gspd")
                     st.caption(f"Chars: {len(txt)}")
                     
                     if st.button("🎙️ Generate",use_container_width=True,key="gg",type="primary"):
